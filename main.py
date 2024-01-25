@@ -53,13 +53,14 @@ def draw_game_grid():
         if i % gameObj.game_col == 0:
             print_cursor[0] = 0
             print_cursor[1] += gameObj.grid_height
-            pg.draw.rect(gameObj.screen, (0,0,255), [gameObj.grid_width * gameObj.game_col - 3, gameObj.grid_height ,20 ,20])
         else:
             print_cursor[0] += gameObj.grid_width
         gameObj.grid_rect.x = print_cursor[0]
         gameObj.grid_rect.y = print_cursor[1]
         if gameObj.maze_map[i] == 1:
             pg.draw.rect(gameObj.screen, (0, 0, 0), gameObj.grid_rect)
+        elif gameObj.maze_map[i] == 2:
+            pg.draw.rect(gameObj.screen, (0, 0, 255), gameObj.grid_rect)
     
     
         
