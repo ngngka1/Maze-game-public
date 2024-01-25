@@ -65,14 +65,13 @@ def maze_generation(row_num, col_num, maze, map_width, map_height, curr_path_sum
             chosen_path_sum = maze_generation(movable_pos[0], movable_pos[1], maze, map_width, map_height, 2 + curr_path_sum, 2)
         max_path_sum = max(max_path_sum, chosen_path_sum)
         
-    print("current path sum: ", curr_path_sum)
     if not goal_set and curr_path_sum >= map_width:
         maze[row_num][col_num] = 2
         goal_set = True
     
     return path_sum + max_path_sum
  
-    
-print(makemaze(20, 20))
-for row in maze:
-    print(" ".join(map(str, row)))
+######## for testing  
+# print(makemaze(20, 20))
+# for row in maze:
+#     print(" ".join(map(str, row)))
