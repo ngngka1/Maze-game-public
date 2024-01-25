@@ -21,9 +21,10 @@ class Game:
         self.main_row = int((self.map_size / width_to_height_ratio) ** (1 / 2))
         self.game_col = self.main_col + 1 + self.main_col % 2
         self.game_row = self.main_row + 1 + self.main_row % 2
-        self.grid_width = SCREEN_WIDTH / (self.game_col)
-        self.grid_height = SCREEN_HEIGHT / (self.game_row) 
-        self.grid_rect = pg.rect.Rect(0, 0, self.grid_width, self.grid_height)
+        self.grid_width_FLOAT = SCREEN_WIDTH / (self.game_col)
+        self.grid_height_FLOAT = SCREEN_HEIGHT / (self.game_row) 
+        self.grid_rect = pg.rect.Rect(0, 0, self.grid_width_FLOAT, self.grid_height_FLOAT) 
+        # Note^^: rect object in pygame is written in C and truncates float to int so 
         maze.makemaze(int(self.main_col), int(self.main_row)) 
         
         
@@ -32,7 +33,10 @@ class Game:
             Maze = json.load(maze_map_file)
             for row in Maze:
                 self.maze_map += row
-        
+                
+class Sprite:
+    def __init__(self):
+        self.path = None
 
         
 
@@ -48,17 +52,18 @@ def draw_game_grid():
     gameObj.grid_rect.x = 0
     gameObj.grid_rect.y = 0
     if gameObj.maze_map[0] == 1:
-            pg.draw.rect(gameObj.screen, (0, 0, 0), gameObj.grid_rect)
+            pg.draw.rect(gameObj.screen, (0, 0, 0), gameObj.grid_rect, 10)
     for i in range(1, len(gameObj.maze_map)):
         if i % gameObj.game_col == 0:
             print_cursor[0] = 0
-            print_cursor[1] += gameObj.grid_height
+            print_cursor[1] += math.ceil(gameObj.grid_height_FLOAT) # As pygame only process integer, the grid spacing is usually broken so I will just leave more spacing for each grid
         else:
-            print_cursor[0] += gameObj.grid_width
+            print_cursor[0] += math.ceil(gameObj.grid_width_FLOAT)
         gameObj.grid_rect.x = print_cursor[0]
         gameObj.grid_rect.y = print_cursor[1]
+        
         if gameObj.maze_map[i] == 1:
-            pg.draw.rect(gameObj.screen, (0, 0, 0), gameObj.grid_rect)
+            pg.draw.rect(gameObj.screen, (0, 0, 0), gameObj.grid_rect, 10)
         elif gameObj.maze_map[i] == 2:
             pg.draw.rect(gameObj.screen, (0, 0, 255), gameObj.grid_rect)
     
