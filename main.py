@@ -14,6 +14,7 @@ class Game:
         
         
     def get_level_properties(self):
+        global wall, goal, sprite
         level_prop = toml.load("level_properties.toml")
         self.map_size = level_prop[str(self.level)]["map_size"] # it refers to how many grids will be in the level
         width_to_height_ratio = SCREEN_WIDTH / SCREEN_HEIGHT
@@ -24,19 +25,103 @@ class Game:
         self.grid_width_FLOAT = SCREEN_WIDTH / (self.game_col)
         self.grid_height_FLOAT = SCREEN_HEIGHT / (self.game_row) 
         self.grid_rect = pg.rect.Rect(0, 0, self.grid_width_FLOAT, self.grid_height_FLOAT) 
-        # Note^^: rect object in pygame is written in C and truncates float to int so there is no need to modify the float value of grid's width and height
+        # Note^^: rect object in pg is written in C and truncates float to int so there is no need to modify the float value of grid's width and height
         maze.makemaze(int(self.main_col), int(self.main_row)) 
-        
-        
         with open("maze_map.json", "r") as maze_map_file:
             self.maze_map = []
-            Maze = json.load(maze_map_file)
-            for row in Maze:    # convert the maze from a 2d-array to 1d
+            for row in json.load(maze_map_file):    # convert the maze from a 2d-array to 1d
                 self.maze_map += row
+
+        wall = Wall(self.grid_width_FLOAT, self.grid_height_FLOAT)
+        goal = Goal(self.grid_width_FLOAT, self.grid_height_FLOAT)
+        sprite = Sprite(self.grid_width_FLOAT // 2, self.grid_height_FLOAT // 2)
+        
+        cursor = [0, 0]    
+        for i in range(0, len(self.maze_map)):
+            if self.maze_map[i] == 1: # if is wall
+                wall.append_wall_rect(pg.rect.Rect(cursor[0], cursor[1], self.grid_width_FLOAT, self.grid_height_FLOAT))
+            elif self.maze_map[i] == 2: # if is goal
+                goal.set_goal_rect(pg.rect.Rect(cursor[0], cursor[1], self.grid_width_FLOAT, self.grid_height_FLOAT))
+                # wall.append_wall_rect(pg.rect.Rect(gameObj.screen, (0, 0, 255), gameObj.grid_rect))
+            if i != 0 and (i + 1) % self.game_col == 0: 
+                cursor[0] = 0
+                cursor[1] += int(self.grid_height_FLOAT) # As pg rect only process integer, the grid spacings are corrected to decimal places
+            else:
+                cursor[0] += int(self.grid_width_FLOAT)
+        
                 
 class Sprite:
-    def __init__(self):
-        self.path = None
+    def __init__(self, width, height):
+        self.path = PATH_TO_SPRITE
+        self.width = width
+        self.height = height
+        self.x = width * 3
+        self.y = height * 3
+        self.move_up = False
+        self.move_down = False
+        self.move_left = False
+        self.move_right = False
+        self.surface_unscaled = pg.image.load(self.path)
+        self.surface_scaled = pg.transform.scale(self.surface_unscaled, (self.width, self.height))
+        self.hitbox = pg.Rect(self.x, self.y, self.width, self.height)
+        
+    def check_movement(self, event):
+        if event.type == pg.KEYDOWN:
+            if event.key == pg.K_RIGHT:
+                self.move_right = True
+            if event.key == pg.K_LEFT:
+                self.move_left = True
+            if event.key == pg.K_DOWN:
+                self.move_down = True
+            if event.key == pg.K_UP:
+                self.move_up = True
+            
+        if event.type == pg.KEYUP:
+            if event.key == pg.K_RIGHT:
+                self.move_right = False
+            if event.key == pg.K_LEFT:
+                self.move_left = False
+            if event.key == pg.K_DOWN:
+                self.move_down = False
+            if event.key == pg.K_UP:
+                self.move_up = False
+    
+    def execute_movement(self):
+        if self.move_up:
+            self.y -= 3
+        if self.move_down:
+            self.y += 3
+        if self.move_left:
+            self.x -= 3
+        if self.move_right:
+            self.x += 3
+            
+        
+        
+class Collision_object:
+    def __init__(self, width, height):
+        self.width = width
+        self.height = height
+        
+class Wall(Collision_object):
+    def __init__(self, width, height):
+        super().__init__(width, height)
+        self.grid_rect_list = []
+        self.color = (0, 0, 0)
+        
+    def append_wall_rect(self, rect):
+        self.grid_rect_list.append(rect)
+        
+class Goal(Collision_object):
+    def __init__(self, width, height):
+        super().__init__(width, height)
+        self.grid_rect = None
+        self.color = (0, 0, 255)
+        
+    def set_goal_rect(self, rect):
+        self.grid_rect = rect
+    
+        
 
         
 
@@ -48,21 +133,11 @@ def draw_screen():
     pg.display.update()
         
 def draw_game_grid():
-    print_cursor = [0, 0]
-    gameObj.grid_rect.x = 0
-    gameObj.grid_rect.y = 0
-    for i in range(0, len(gameObj.maze_map)):
-        if gameObj.maze_map[i] == 1: # if is wall
-            pg.draw.rect(gameObj.screen, (0, 0, 0), gameObj.grid_rect, 10)
-        elif gameObj.maze_map[i] == 2: # if is goal
-            pg.draw.rect(gameObj.screen, (0, 0, 255), gameObj.grid_rect)
-        if i != 0 and (i + 1) % gameObj.game_col == 0: 
-            print_cursor[0] = 0
-            print_cursor[1] += int(gameObj.grid_height_FLOAT) # As pygame rect only process integer, the grid spacings are corrected to decimal places
-        else:
-            print_cursor[0] += int(gameObj.grid_width_FLOAT)
-        gameObj.grid_rect.x = print_cursor[0]
-        gameObj.grid_rect.y = print_cursor[1]
+    for rectObj in wall.grid_rect_list:
+        pg.draw.rect(gameObj.screen, wall.color, rectObj, 10)
+    pg.draw.rect(gameObj.screen, goal.color, goal.grid_rect)
+    
+    gameObj.screen.blit(sprite.surface_scaled, (sprite.x, sprite.y))
     
     
         
@@ -81,19 +156,23 @@ def main():
                 running = False
                 pg.quit()
                 sys.exit()
+            sprite.check_movement(event)
+        sprite.execute_movement()
+            
         draw_screen()
                 
 def init_game():
-    global gameObj
+    global gameObj, wall
     gameObj = Game()
         
 def init_config():
-    global FPS, SCREEN_WIDTH, SCREEN_HEIGHT, bg_color, screen
+    global FPS, SCREEN_WIDTH, SCREEN_HEIGHT, PATH_TO_SPRITE, bg_color
     config = toml.load("config.toml")
     FPS = config["fps"]
     SCREEN_WIDTH = config["screen_width"]
     SCREEN_HEIGHT = config["screen_height"]
     bg_color = config["default_background_color"]
+    PATH_TO_SPRITE = config["sprite"]["path"]
     
     
     
