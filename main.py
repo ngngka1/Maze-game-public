@@ -39,7 +39,7 @@ class Game:
 
         wall = Wall(self.grid_width, self.grid_height)
         goal = Goal(self.grid_width, self.grid_height)
-        sprite = Sprite(self.grid_width // 2, self.grid_height // 2)
+        sprite = Sprite(self.grid_width / 2, self.grid_height / 2)
         camera = Camera(self.camera_size)
         
         cursor = [0, 0]    
@@ -57,10 +57,10 @@ class Game:
 class Sprite:
     def __init__(self, width, height):
         self.path = PATH_TO_SPRITE
-        self.width = width
-        self.height = height
-        self.x = width * 2 # the parameter width and heigth are actually gameObj.grid_width & height divided by 2
-        self.y = height * 2
+        self.width = int(width)
+        self.height = int(height)
+        self.x = width * 2 + 1  # the parameter width and heigth are actually gameObj.grid_width & height divided by 2
+        self.y = height * 2 + 1
         self.move_up = False
         self.move_down = False
         self.move_left = False
