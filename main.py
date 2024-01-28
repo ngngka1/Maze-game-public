@@ -1,6 +1,6 @@
 import pygame as pg
 import pygame.camera as pgcam
-import maze
+import dfs
 import toml
 import sys
 import json
@@ -31,7 +31,7 @@ class Game:
         self.grid_width = SCREEN_WIDTH // (self.game_col)
         self.grid_height = SCREEN_HEIGHT // (self.game_row) 
         self.grid_rect = pg.rect.Rect(0, 0, self.grid_width, self.grid_height) 
-        maze.makemaze(self.main_col, self.main_row) 
+        dfs.makemaze(self.main_col, self.main_row) 
         with open("maze_map.json", "r") as maze_map_file:
             self.maze_map = []
             for row in json.load(maze_map_file):    # convert the maze from a 2d-array to 1d
