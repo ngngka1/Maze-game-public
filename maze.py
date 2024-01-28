@@ -4,8 +4,11 @@ import json
 
 def makemaze(maze_width: int, maze_height: int):
 
-    global maze, goal_set
-    goal_set = False # a flag that shows if the goal position is generated yet
+    global maze, goal
+    goal = {
+        "coordinate": (0, 0),
+        "path_sum": 0
+    } # stores the coordinate of the goal as well as its path sum
     maze = []
     for row_num in range(maze_height):
         temp = []
@@ -14,6 +17,7 @@ def makemaze(maze_width: int, maze_height: int):
         maze.append(temp)
             
     max_path_sum = maze_generation(0, 0, maze, maze_width, maze_height)
+    maze[goal["coordinate"][0]][goal["coordinate"][1]] = 2
     
     temp = []
     for i in range(0, maze_width + 1 + maze_width % 2):
@@ -44,7 +48,7 @@ def makemaze(maze_width: int, maze_height: int):
     return max_path_sum
     
 def maze_generation(row_num, col_num, maze, map_width, map_height, curr_path_sum=0, path_sum=0) -> int: # return the maximum pathsum as well
-    global goal_set
+    global goal
     possible_path = []
     if row_num + 2 < map_height and maze[row_num + 2][col_num] == 1: # if can go down and unmaze
         possible_path.append((row_num + 2, col_num))
@@ -65,9 +69,9 @@ def maze_generation(row_num, col_num, maze, map_width, map_height, curr_path_sum
             chosen_path_sum = maze_generation(movable_pos[0], movable_pos[1], maze, map_width, map_height, 2 + curr_path_sum, 2)
         max_path_sum = max(max_path_sum, chosen_path_sum)
         
-    if not goal_set and curr_path_sum >= map_width:
-        maze[row_num][col_num] = 2
-        goal_set = True
+    if curr_path_sum > goal["path_sum"]:
+        goal["coordinate"] = (row_num, col_num)
+        goal["path_sum"] = curr_path_sum
     
     return path_sum + max_path_sum
  

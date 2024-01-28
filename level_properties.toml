@@ -1,5 +1,39 @@
 [1]
-map_size = 300
+map_size = 200
+camera_size = 0.8
 
 [2]
-map_size = 300
+map_size = 400
+camera_size = 0.75
+
+[3]
+map_size = 600
+camera_size = 0.7
+
+[4]
+map_size = 800
+camera_size = 0.65
+
+[5]
+map_size = 1000
+camera_size = 0.6
+
+[6]
+map_size = 1200
+camera_size = 0.5
+
+[7]
+map_size = 1400
+camera_size = 0.45
+
+[8]
+map_size = 1600
+camera_size = 0.4
+
+[9]
+map_size = 1800
+camera_size = 0.35
+
+[10]
+map_size = 2000
+camera_size = 0.25

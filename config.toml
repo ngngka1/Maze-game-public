@@ -1,6 +1,6 @@
 fps = 60
-screen_width = 1000
-screen_height = 700
+screen_width = 2000
+screen_height = 1600
 default_background_color = [255,255,255] # white
 
 [sprite]
