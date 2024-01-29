@@ -7,7 +7,7 @@ import json
 import math
 
 class Game:
-    def __init__(self, level=1):
+    def __init__(self, level=1) -> None:
         self.screen = pg.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
         pg.display.set_caption("Maze minigame")
         self.level = level
@@ -15,8 +15,8 @@ class Game:
         self.get_level_properties()
         
         
-    def get_level_properties(self):
-        global wall, goal, sprite, camera
+    def get_level_properties(self) -> None:
+        global wall, goal, sprite, camera, overlay
         level_prop = toml.load("level_properties.toml")
         
         # Camera property
@@ -41,6 +41,7 @@ class Game:
         goal = Goal(self.grid_width, self.grid_height)
         sprite = Sprite(self.grid_width / 2, self.grid_height / 2)
         camera = Camera(self.camera_size)
+        overlay = UI()
         
         cursor = [0, 0]    
         for i in range(0, len(self.maze_map)):
@@ -55,11 +56,11 @@ class Game:
                 cursor[0] += self.grid_width
                        
 class Sprite:
-    def __init__(self, width, height):
+    def __init__(self, width, height) -> None:
         self.path = PATH_TO_SPRITE
         self.width = int(width)
         self.height = int(height)
-        self.x = width * 2 + 1  # the parameter width and heigth are actually gameObj.grid_width & height divided by 2
+        self.x = width * 2 + 1  # the parameter width and heigth are actually game_obj.grid_width & height divided by 2
         self.y = height * 2 + 1
         self.move_up = False
         self.move_down = False
@@ -70,7 +71,8 @@ class Sprite:
         self.surface_scaled = pg.transform.scale(self.surface_unscaled, (self.width, self.height))
         self.hitbox = pg.Rect(self.x, self.y, self.width, self.height)
         
-    def check_movement(self, event):
+    def check_movement(self, event) -> None:
+
         if event.type == pg.KEYDOWN:
             if event.key == pg.K_RIGHT:
                 self.move_right = True
@@ -91,7 +93,9 @@ class Sprite:
             if event.key == pg.K_UP:
                 self.move_up = False
     
-    def execute_movement(self):
+    def execute_movement(self) -> None:
+        if not (self.move_up or self.move_down or self.move_left or self.move_right):
+            return
         target_x = self.x
         target_y = self.y
         if self.move_up:
@@ -117,13 +121,22 @@ class Sprite:
                 if self.hitbox.colliderect(rect):
                     self.hitbox.y = self.y
 
-
         self.x = self.hitbox.x
         self.y = self.hitbox.y
         
+        self.pass_check()
+        
+        
+    def pass_check(self):
         if self.hitbox.colliderect(goal.grid_rect):
-            gameObj.level += 1
-            gameObj.get_level_properties()
+            game_obj.level += 1
+            game_obj.get_level_properties()
+            
+    def freeze(self):
+        self.move_up = False
+        self.move_down = False
+        self.move_left = False
+        self.move_right = False
    
 class Camera:
     def __init__(self, camera_size) -> None:
@@ -134,61 +147,125 @@ class Camera:
         self.x = sprite.x - self.width // 2
         self.y = sprite.y - self.height // 2
         
-    def update(self):
+    def update(self) -> None:
         self.x = sprite.x - self.width // 2
         self.y = sprite.y - self.height // 2
         self.surface.fill(bg_color)
-        self.surface.blit(gameObj.screen, (0, 0), (self.x, self.y, self.width, self.height))
-        gameObj.screen.blit(pg.transform.scale(self.surface, (SCREEN_WIDTH, SCREEN_HEIGHT)), (0, 0))
+        self.surface.blit(game_obj.screen, (0, 0), (self.x, self.y, self.width, self.height))
+        game_obj.screen.blit(pg.transform.scale(self.surface, (SCREEN_WIDTH, SCREEN_HEIGHT)), (0, 0))
                 
 class Collision_object:
-    def __init__(self, width, height):
+    def __init__(self, width, height) -> None:
         self.width = width
         self.height = height
         
 class Wall(Collision_object):
-    def __init__(self, width, height):
+    def __init__(self, width, height) -> None:
         super().__init__(width, height)
         self.grid_rect_list = []
         self.color = (0, 0, 0)
         
-    def append_wall_rect(self, rect):
+    def append_wall_rect(self, rect) -> None:
         self.grid_rect_list.append(rect)
               
 class Goal(Collision_object):
-    def __init__(self, width, height):
+    def __init__(self, width, height) -> None:
         super().__init__(width, height)
         self.grid_rect = None
         self.color = (0, 0, 255)
         
-    def set_goal_rect(self, rect):
+    def set_goal_rect(self, rect) -> None:
         self.grid_rect = rect
         
+class UI:
+    def __init__(self) -> None:
+        self.activated = True
+        self.text_box_color_unchosen = (100, 100, 100)
+        self.text_box_color_chosen = (0, 0, 0)
+        self.text_color = (255, 255, 255)
+        self.FONT = pg.font.Font(FONT_FILE_PATH, 50) ## 
+        self.text_box_rects = [] ## 
+        self.text_surfaces = [] ##
+        self.chosen_index = 0
+        self.overlay_actions = []
+        self.get_overlay_options()
+        
+    def get_overlay_options(self):
+        txt_surface_continue = self.FONT.render("Continue", True, self.text_color)
+        txt_surface_settings = self.FONT.render("Settings", True, self.text_color)
+        txt_surface_exit = self.FONT.render("Exit", True, self.text_color)
+        self.overlay_actions.append(self.switch_UI)
+        self.overlay_actions.append(self.switch_UI) ## Setting menu is not done yet, so it quits menu for now
+        self.overlay_actions.append(exit_game)
+        self.text_surfaces.append(txt_surface_continue)
+        self.text_surfaces.append(txt_surface_settings)
+        self.text_surfaces.append(txt_surface_exit)
+        self.text_box_rects.append(txt_surface_continue.get_rect(center = (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 100))) ##
+        self.text_box_rects.append(txt_surface_settings.get_rect(center = (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))) ## 
+        self.text_box_rects.append(txt_surface_exit.get_rect(center = (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 100))) ##
+        
+    def change_option(self, value):
+        self.chosen_index = ((self.chosen_index + value) % 3) & 3
+        #1111 (-1)
+        #0000 (0)
+        #0001 (1)
+        #0010 (2)
+        
+        #0011 (3)
+        
+    def check_action(self, event):
+        if event.type == pg.KEYDOWN:
+            if event.key == pg.K_RETURN:
+                self.execute_action(self.chosen_index)
+            elif event.key == pg.K_UP:
+                overlay.change_option(-1)
+            elif event.key == pg.K_DOWN:
+                overlay.change_option(1)
+                
+    def execute_action(self, i):
+        self.overlay_actions[i]()
+        
+    def switch_UI(self) -> None:
+        self.activated = not self.activated
+        
+    def update_UI(self) -> None:
+        for i in range(len(self.text_box_rects)):
+            if i == self.chosen_index:
+                rect_color = self.text_box_color_chosen
+            else:
+                rect_color = self.text_box_color_unchosen
+            pg.draw.rect(game_obj.screen, rect_color, self.text_box_rects[i], 0, 3)
+            game_obj.screen.blit(self.text_surfaces[i], self.text_box_rects[i])
+        
+        
+        
+        
 
+def draw_screen() -> None:
 
-def draw_screen():
-    gameObj.screen.fill(bg_color)
-    
-    draw_game_grid()
-    
-    camera.update()
+    if overlay.activated:
+        overlay.update_UI()
+    else:
+        game_obj.screen.fill(bg_color)
+        
+        draw_game_grid()
+        
+        camera.update()
+        
     
     pg.display.flip()
         
-def draw_game_grid():
+def draw_game_grid() -> None:
     for rectObj in wall.grid_rect_list:
-        pg.draw.rect(gameObj.screen, wall.color, rectObj, 10)
-    pg.draw.rect(gameObj.screen, goal.color, goal.grid_rect)
+        pg.draw.rect(game_obj.screen, wall.color, rectObj, 10)
+    pg.draw.rect(game_obj.screen, goal.color, goal.grid_rect)
     
-    gameObj.screen.blit(sprite.surface_scaled, (sprite.x, sprite.y))
+    game_obj.screen.blit(sprite.surface_scaled, (sprite.x, sprite.y))
     
+def exit_game():
+    pg.quit()
+    sys.exit()
     
-    
-        
-        
-    
-    
-
 def main():
     running = True
     while running:
@@ -198,26 +275,35 @@ def main():
         for event in pg.event.get():
             if event.type == pg.QUIT:
                 running = False
-                camera.stop()
-                pg.quit()
-                sys.exit()
-            sprite.check_movement(event)
+                exit_game()
+            if event.type == pg.KEYDOWN:
+                if event.key == pg.K_ESCAPE:
+                    overlay.switch_UI()
+            if overlay.activated:
+                sprite.freeze() # freeze is needed as sprite.check_movement stops the sprite only when it detects KEYUP
+                overlay.check_action(event)
+            else:
+                sprite.check_movement(event)
         sprite.execute_movement()
             
         draw_screen()
                 
-def init_game():
-    global gameObj, wall
-    gameObj = Game()
+def init_game() -> None:
+    global game_obj
+    game_obj = Game()
+    overlay.activated = False
         
-def init_config():
-    global FPS, SCREEN_WIDTH, SCREEN_HEIGHT, PATH_TO_SPRITE, bg_color
+def init_config() -> None:
+    global FPS, SCREEN_WIDTH, SCREEN_HEIGHT, PATH_TO_SPRITE, bg_color, FONT_FILE_PATH, FONT
     config = toml.load("config.toml")
     FPS = config["fps"]
     SCREEN_WIDTH = config["screen_width"]
     SCREEN_HEIGHT = config["screen_height"]
     bg_color = config["default_background_color"]
     PATH_TO_SPRITE = config["sprite"]["path"]
+    # Font
+    pg.font.init()
+    FONT_FILE_PATH = config["font"]["path"]
     
     
     
