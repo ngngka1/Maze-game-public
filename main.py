@@ -5,7 +5,7 @@ import toml
 import sys
 import json
 import re
-import math
+import time
 
 class Game:
     def __init__(self, level=1) -> None:
@@ -24,7 +24,7 @@ class Game:
             UI_instance.activated ^= 1
           
     def get_level_properties(self) -> None:
-        global wall, goal, sprite, camera, menu, settings
+        global wall, goal, sprite, camera, menu, settings, stats, time_elapsed
         level_prop = toml.load("level_properties.toml")
         
         # Map property
@@ -52,6 +52,7 @@ class Game:
         settings = UI("settings") 
         menu = UI("menu")
         self.UI_str_list = {"settings": settings, "menu": menu}
+        stats = Stats(self.level)
         
         
         cursor = [0, 0]    
@@ -173,7 +174,6 @@ class UI:
         self.text_box_color_unchosen = (100, 100, 100)
         self.text_box_color_chosen = (0, 0, 0)
         self.text_color = (255, 255, 255)
-        self.FONT = pg.font.Font(FONT_FILE_PATH, 50) ####
         self.text_box = {}
         self.actions = []
         self.get_options()
@@ -184,7 +184,7 @@ class UI:
             self.actions.append(self.get_action_function(option))
         
         for i, option in enumerate(self.options):
-            text_surface = self.FONT.render(option, True, self.text_color)
+            text_surface = FONT.render(option, True, self.text_color)
             text_rect = text_surface.get_rect()
             text_rects_distance = text_rect.height + 20 # There is a distance of 20 pixel between each rects
             text_rect.center = (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - text_rects_distance * ((len(self.actions) // 2) - i))
@@ -232,7 +232,28 @@ class UI:
             else:
                 pg.draw.rect(game_obj.screen, self.text_box_color_unchosen, self.text_box[option]["rect"], 0, 3)
             game_obj.screen.blit(self.text_box[option]["text_surface"], self.text_box[option]["rect"])
-                
+      
+class Stats:
+    def __init__(self, current_level, time_elapsed = 0):
+        self.display = True
+        self.level_display_surface = FONT.render(f"Current level: {current_level}", True, (0, 0, 0))
+        self.level_display_rect = self.level_display_surface.get_rect(center = ((camera.x + SCREEN_WIDTH // 2) // 2, (camera.y + SCREEN_HEIGHT // 2) // 2 + 80))
+        self.time_elapsed = time_elapsed
+        self.time_display_surface = FONT.render(f"Time used: {time_elapsed:.3f}", True, (0, 0, 0))
+        self.time_display_rect = self.time_display_surface.get_rect(center = ((camera.x + SCREEN_WIDTH // 2) // 2, (camera.y + SCREEN_HEIGHT // 2) // 2))
+        
+    def update_stats_overlay(self):
+        self.time_elapsed = time_elapsed
+        pg.draw.rect(game_obj.screen, (255, 255, 0), self.level_display_rect)
+        game_obj.screen.blit(self.level_display_surface, self.level_display_rect)
+        
+        pg.draw.rect(game_obj.screen, (255, 255, 0), self.time_display_rect)
+        self.time_display_surface = FONT.render(f"Time used: {self.time_elapsed}", True, (0, 0, 0))
+        game_obj.screen.blit(self.time_display_surface, self.time_display_rect)
+        
+        
+        
+              
 class Collision_object:
     def __init__(self, width, height) -> None:
         self.width = width
@@ -266,6 +287,8 @@ def draw_screen() -> None:
         draw_game_grid()
         
         camera.update()
+        
+        stats.update_stats_overlay()
     
     pg.display.update()
         
@@ -288,16 +311,18 @@ def UIopen(new_UI = None): ##readablity can be improved, anyways this opens the 
 def open_settings_UI():
     game_obj.switch_UI(settings)
     
-        
-
 def exit_game():
     pg.quit()
     sys.exit()
     
 def main():
+    global time_elapsed
+    clock = pg.time.Clock()
+    time_elapsed = 0.001
+    total_paused_time = 0
+    pause_start_time = 0
     running = True
     while running:
-        clock = pg.time.Clock()
         clock.tick(FPS)
         
         for event in pg.event.get():
@@ -311,13 +336,19 @@ def main():
                     else:
                         UIreturn() # turn off the last opened UI (Please see UI.switch_UI() for reference, default argument is game_obj.current_activated_UI_stack[-1])
             if game_obj.current_activated_UI_stack: # if UI is turned on
+                if pause_start_time == 0:
+                    pause_start_time = pg.time.get_ticks()
                 sprite.freeze() # freeze is needed as sprite.check_movement stops the sprite only when it detects KEYUP
                 game_obj.current_activated_UI_stack[-1].check_action(event)
             else:
+                if pause_start_time != 0:
+                    total_paused_time += pg.time.get_ticks() - pause_start_time
+                    pause_start_time = 0
                 sprite.check_movement(event)
         sprite.execute_movement()
-            
+        time_elapsed = (pg.time.get_ticks() - total_paused_time) / 1000.0
         draw_screen()
+        
                 
 def init_game() -> None:
     global game_obj
@@ -331,7 +362,7 @@ def init_UI():
     menu = UI("menu") 
         
 def init_config() -> None:
-    global FPS, SCREEN_WIDTH, SCREEN_HEIGHT, PATH_TO_SPRITE, bg_color, FONT_FILE_PATH, OPTIONS_ALL_UI
+    global FPS, SCREEN_WIDTH, SCREEN_HEIGHT, PATH_TO_SPRITE, bg_color, FONT_FILE_PATH, FONT, OPTIONS_ALL_UI
     config = toml.load("config.toml")
     FPS = config["fps"]
     SCREEN_WIDTH = config["screen_width"]
@@ -341,6 +372,7 @@ def init_config() -> None:
     # Font
     pg.font.init()
     FONT_FILE_PATH = config["font"]["path"]
+    FONT = pg.font.Font(FONT_FILE_PATH, 50) 
     # Menu
     OPTIONS_ALL_UI = {
         "menu": config["menu"]["options"],
