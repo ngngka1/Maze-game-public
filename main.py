@@ -4,6 +4,7 @@ import dfs
 import toml
 import sys
 import json
+import re
 import math
 
 class Game:
@@ -184,26 +185,25 @@ class UI:
         self.text_box_color_chosen = (0, 0, 0)
         self.text_color = (255, 255, 255)
         self.FONT = pg.font.Font(FONT_FILE_PATH, 50) ## 
-        self.text_box_rects = [] ## 
-        self.text_surfaces = [] ##
+        self.text_box = {}
         self.chosen_index = 0
         self.overlay_actions = []
         self.get_overlay_options()
         
     def get_overlay_options(self):
-        txt_surface_continue = self.FONT.render("Continue", True, self.text_color)
-        txt_surface_settings = self.FONT.render("Settings", True, self.text_color)
-        txt_surface_exit = self.FONT.render("Exit", True, self.text_color)
-        self.overlay_actions.append(self.switch_UI)
-        self.overlay_actions.append(self.switch_UI) ## Setting menu is not done yet, so it quits menu for now
-        self.overlay_actions.append(exit_game)
-        self.text_surfaces.append(txt_surface_continue)
-        self.text_surfaces.append(txt_surface_settings)
-        self.text_surfaces.append(txt_surface_exit)
-        self.text_box_rects.append(txt_surface_continue.get_rect(center = (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 100))) ##
-        self.text_box_rects.append(txt_surface_settings.get_rect(center = (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))) ## 
-        self.text_box_rects.append(txt_surface_exit.get_rect(center = (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 100))) ##
+        for option in OPTIONS:
+            self.overlay_actions.append(self.get_action_function(option))
         
+        for i, option in enumerate(OPTIONS):
+            text_surface = self.FONT.render(option, True, self.text_color)
+            text_rect = text_surface.get_rect()
+            text_rects_distance = text_rect.height + 20 # There is a distance of 20 pixel between each rects
+            text_rect.center = (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - text_rects_distance * ((len(self.overlay_actions) // 2) - i))
+            self.text_box[option] = {
+                        "text_surface": text_surface,
+                        "rect": text_rect
+                    }
+
     def change_option(self, value):
         self.chosen_index = ((self.chosen_index + value) % 3) & 3
         #1111 (-1)
@@ -212,6 +212,14 @@ class UI:
         #0010 (2)
         
         #0011 (3)
+        
+    def get_action_function(self, action_str):
+        if re.search(r"continue", action_str, re.IGNORECASE):
+            return self.switch_UI
+        if re.search(r"setting", action_str, re.IGNORECASE):
+            return self.switch_UI
+        if re.search(r"exit", action_str, re.IGNORECASE):
+            return pg.quit
         
     def check_action(self, event):
         if event.type == pg.KEYDOWN:
@@ -229,20 +237,14 @@ class UI:
         self.activated = not self.activated
         
     def update_UI(self) -> None:
-        for i in range(len(self.text_box_rects)):
+        for i, option in enumerate(OPTIONS):
             if i == self.chosen_index:
-                rect_color = self.text_box_color_chosen
+                pg.draw.rect(game_obj.screen, self.text_box_color_chosen, self.text_box[option]["rect"])
             else:
-                rect_color = self.text_box_color_unchosen
-            pg.draw.rect(game_obj.screen, rect_color, self.text_box_rects[i], 0, 3)
-            game_obj.screen.blit(self.text_surfaces[i], self.text_box_rects[i])
+                pg.draw.rect(game_obj.screen, self.text_box_color_unchosen, self.text_box[option]["rect"], 0, 3)
+            game_obj.screen.blit(self.text_box[option]["text_surface"], self.text_box[option]["rect"])
         
-        
-        
-        
-
 def draw_screen() -> None:
-
     if overlay.activated:
         overlay.update_UI()
     else:
@@ -251,7 +253,6 @@ def draw_screen() -> None:
         draw_game_grid()
         
         camera.update()
-        
     
     pg.display.flip()
         
@@ -294,7 +295,7 @@ def init_game() -> None:
     overlay.activated = False
         
 def init_config() -> None:
-    global FPS, SCREEN_WIDTH, SCREEN_HEIGHT, PATH_TO_SPRITE, bg_color, FONT_FILE_PATH, FONT
+    global FPS, SCREEN_WIDTH, SCREEN_HEIGHT, PATH_TO_SPRITE, bg_color, FONT_FILE_PATH, FONT, OPTIONS
     config = toml.load("config.toml")
     FPS = config["fps"]
     SCREEN_WIDTH = config["screen_width"]
@@ -304,6 +305,7 @@ def init_config() -> None:
     # Font
     pg.font.init()
     FONT_FILE_PATH = config["font"]["path"]
+    OPTIONS = config["overlay"]["options"]
     
     
     

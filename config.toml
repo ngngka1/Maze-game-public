@@ -6,6 +6,9 @@ default_background_color = [255,255,255] # white
 [sprite]
 path = 'assets\msedge_4IvGRozQp0.png'
 
+[overlay]
+options = ["Continue", "Settings", "Exit"]
+
 [font]
 size = 200
 path = 'assets\SunnySpellsBasicRegular-Yz1Wv.ttf'
