@@ -12,62 +12,59 @@ class Game:
         self.screen = pg.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
         pg.display.set_caption("Maze minigame")
         self.level = level
-        self.camera_size = 0
-        self.current_activated_UI_stack = []
+        self.current_activated_UI_stack: list[UI] = []
         self.get_level_properties()
      
     # switch_UI() turns off the current UI without arguments passed, and append new UI if called with arguments passed
     def switch_UI(self, UI_instance = None) -> None: # switch_UI() is in class Game because I realized that it would be better for overall management of classes
-        if type(UI_instance) == list:
-            UI_instance = UI_instance[0]
-
-        
-        if not UI_instance: # we only call switch_UI() without arguments when UI has already been activated, so there should be elements in the stack
+        if not UI_instance: 
             self.current_activated_UI_stack.pop().activated ^= 1
         else:
             self.current_activated_UI_stack.append(UI_instance)
             UI_instance.activated ^= 1
           
     def get_level_properties(self) -> None:
-        global wall, goal, sprite, camera
+        global wall, goal, sprite, camera, menu, settings
         level_prop = toml.load("level_properties.toml")
         
-        # Camera property
-        self.camera_size = level_prop[str(self.level)]["camera_size"]
         # Map property
-        self.map_size = level_prop[str(self.level)]["map_size"] # how many grids will be in the level
+        map_size = level_prop[str(self.level)]["map_size"] # how many grids will be in the level
         width_to_height_ratio = SCREEN_WIDTH / SCREEN_HEIGHT
-        self.main_col = int((self.map_size / (1 / width_to_height_ratio)) ** (1 / 2)) # w + (height-width ratio) * w = map.size^2
-        self.main_row = int((self.map_size / width_to_height_ratio) ** (1 / 2)) # h + (width-height ratio) * h = map.size^2
-        self.game_col = self.main_col + 1 + self.main_col % 2 # if there is even number of columns, right side must be wall
-        self.game_row = self.main_row + 1 + self.main_row % 2 # if there is even number of rows, bottom must be wall
-        self.grid_width = SCREEN_WIDTH // (self.game_col)
-        self.grid_height = SCREEN_HEIGHT // (self.game_row) 
-        self.grid_rect = pg.rect.Rect(0, 0, self.grid_width, self.grid_height) 
-        dfs.makemaze(self.main_col, self.main_row) 
+        main_col = int((map_size / (1 / width_to_height_ratio)) ** (1 / 2)) # w * (height-width ratio) * w = map.size -> w^2 * h/w = map.size -> w = (map.size / (h/w))^0.5
+        main_row = int((map_size / width_to_height_ratio) ** (1 / 2)) # h * (width-height ratio) * h = map.size
+        game_col = main_col + 1 + main_col % 2 # if there is even number of columns, right side must be wall
+        game_row = main_row + 1 + main_row % 2 # if there is even number of rows, bottom must be wall
+        grid_width = SCREEN_WIDTH // (game_col)
+        grid_height = SCREEN_HEIGHT // (game_row) 
+        camera_width = grid_width * 10
+        camera_height = (grid_width * 10) // width_to_height_ratio # substitution of: camera_width / camera_height = width_height ratio
+        dfs.makemaze(main_col, main_row) 
         with open("maze_map.json", "r") as maze_map_file:
-            self.maze_map = []
+            maze_map = []
             for row in json.load(maze_map_file):    # convert the maze from a 2d-array to 1d
-                self.maze_map += row
-        # The above map property will likely be removed to improve memory usage in the future
+                maze_map += row
 
         # Global class objects
-        wall = Wall(self.grid_width, self.grid_height)
-        goal = Goal(self.grid_width, self.grid_height)
-        sprite = Sprite(self.grid_width / 2, self.grid_height / 2)
-        camera = Camera(self.camera_size)
+        wall = Wall(grid_width, grid_height)
+        goal = Goal(grid_width, grid_height)
+        sprite = Sprite(grid_width / 2, grid_height / 2)
+        camera = Camera(camera_width, camera_height)
+        settings = UI("settings") 
+        menu = UI("menu")
+        self.UI_str_list = {"settings": settings, "menu": menu}
+        
         
         cursor = [0, 0]    
-        for i in range(0, len(self.maze_map)):
-            if self.maze_map[i] == 1: # if is wall
-                wall.append_wall_rect(pg.rect.Rect(cursor[0], cursor[1], self.grid_width, self.grid_height))
-            elif self.maze_map[i] == 2: # if is goal
-                goal.set_goal_rect(pg.rect.Rect(cursor[0], cursor[1], self.grid_width, self.grid_height))
-            if i != 0 and (i + 1) % self.game_col == 0: 
+        for i in range(0, len(maze_map)):
+            if maze_map[i] == 1: # if is wall
+                wall.append_wall_rect(pg.rect.Rect(cursor[0], cursor[1], grid_width, grid_height))
+            elif maze_map[i] == 2: # if is goal
+                goal.set_goal_rect(pg.rect.Rect(cursor[0], cursor[1], grid_width, grid_height))
+            if i != 0 and (i + 1) % game_col == 0: 
                 cursor[0] = 0
-                cursor[1] += self.grid_height # As pg rect only process integer, the grid spacings are corrected to decimal places
+                cursor[1] += grid_height
             else:
-                cursor[0] += self.grid_width
+                cursor[0] += grid_width
                        
 class Sprite:
     def __init__(self, width, height) -> None:
@@ -153,10 +150,10 @@ class Sprite:
         self.move_right = False
    
 class Camera:
-    def __init__(self, camera_size) -> None:
+    def __init__(self, width, height) -> None:
         self.object = pgcam.Camera(pgcam.list_cameras()[0])
-        self.width = SCREEN_WIDTH * camera_size
-        self.height = SCREEN_HEIGHT * camera_size
+        self.width = width
+        self.height = height
         self.surface = pg.Surface((self.width, self.height))
         self.x = sprite.x - self.width // 2
         self.y = sprite.y - self.height // 2
@@ -170,7 +167,7 @@ class Camera:
       
 class UI:
     def __init__(self, UItype: str) -> None:
-        self.UItype = UItype ## this specifies if the UI is pause menu/settings; have room for improvement for modularity
+        self.options = OPTIONS_ALL_UI[UItype] ## this specifies if the UI is pause menu/settings; have room for improvement for modularity
         self.activated = False
         self.chosen_index = 0
         self.text_box_color_unchosen = (100, 100, 100)
@@ -183,10 +180,10 @@ class UI:
         self.total_action = len(self.actions)
         
     def get_options(self):
-        for option in OPTIONS[self.UItype]:
+        for option in self.options:
             self.actions.append(self.get_action_function(option))
         
-        for i, option in enumerate(OPTIONS[self.UItype]):
+        for i, option in enumerate(self.options):
             text_surface = self.FONT.render(option, True, self.text_color)
             text_rect = text_surface.get_rect()
             text_rects_distance = text_rect.height + 20 # There is a distance of 20 pixel between each rects
@@ -196,20 +193,20 @@ class UI:
                         "rect": text_rect
                     }
         
-    def get_action_function(self, action_str): # get the function of the respective UI option
-        if re.search(r"\bcontinue\b", action_str, re.IGNORECASE): # Note: \b finds exact match only
-            return game_obj.switch_UI
-        if re.search(r"\bsettings\b", action_str, re.IGNORECASE):
-            return [game_obj.switch_UI, settings] # the first element is the function, remaining is the argument
-        if re.search(r"\bexit\b", action_str, re.IGNORECASE):
+    def get_action_function(self, option_str): # get the function of the respective UI option
+        if re.search(r"\bcontinue\b", option_str, re.IGNORECASE): # Note: \b finds exact match only
+            return UIreturn
+        if re.search(r"\bsettings\b", option_str, re.IGNORECASE):
+            return UIopen # the first element is the function, remaining is the argument
+        if re.search(r"\bexit\b", option_str, re.IGNORECASE):
             return exit_game
-        if re.search(r"\bdifficulty\b", action_str, re.IGNORECASE):
+        if re.search(r"\bdifficulty\b", option_str, re.IGNORECASE):
             return print("difficulty option found") # temp
-        if re.search(r"\bbackground\b", action_str, re.IGNORECASE):
+        if re.search(r"\bbackground\b", option_str, re.IGNORECASE):
             return print("background option found") # temp
-        if re.search(r"\bcharacter\b", action_str, re.IGNORECASE):
+        if re.search(r"\bcharacter\b", option_str, re.IGNORECASE):
             return print("character option found") # temp
-        if re.search(r"\btheme\b", action_str, re.IGNORECASE):
+        if re.search(r"\btheme\b", option_str, re.IGNORECASE):
             return print("theme option found") # temp
         
     def check_action(self, event):  # check if user changed action
@@ -227,10 +224,9 @@ class UI:
             self.actions[i]()
         else:
             self.actions[i][0](self.actions[i][1:]) ## calls the function and pass the arguments as a list
-            
-        
+             
     def update_UI(self) -> None:
-        for i, option in enumerate(OPTIONS[self.UItype]):
+        for i, option in enumerate(self.options):
             if i == self.chosen_index:
                 pg.draw.rect(game_obj.screen, self.text_box_color_chosen, self.text_box[option]["rect"])
             else:
@@ -262,7 +258,7 @@ class Goal(Collision_object):
         
 def draw_screen() -> None:
     if game_obj.current_activated_UI_stack:
-        pg.draw.rect(game_obj.screen, (0, 0, 255), (SCREEN_WIDTH // 4, SCREEN_HEIGHT // 4, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2), 0, 4)
+        pg.draw.rect(game_obj.screen, (0, 0, 255), (SCREEN_WIDTH // 4, SCREEN_HEIGHT // 4, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2), 0, 40)
         game_obj.current_activated_UI_stack[-1].update_UI()
     else:
         game_obj.screen.fill(bg_color)
@@ -271,7 +267,7 @@ def draw_screen() -> None:
         
         camera.update()
     
-    pg.display.flip()
+    pg.display.update()
         
 def draw_game_grid() -> None:
     for rectObj in wall.grid_rect_list:
@@ -280,6 +276,20 @@ def draw_game_grid() -> None:
     
     game_obj.screen.blit(sprite.surface_scaled, (sprite.x, sprite.y))
     
+def UIreturn():
+    game_obj.switch_UI()
+    
+def UIopen(new_UI = None): ##readablity can be improved, anyways this opens the UI with the name of the chosen option
+    if not new_UI:
+        current_UI = game_obj.current_activated_UI_stack[-1]
+        new_UI = game_obj.UI_str_list[current_UI.options[current_UI.chosen_index].lower()] # in toml file, the 1st letter of the UI's option is capitalized, so i just put lower() here to avoid key errors
+    game_obj.switch_UI(new_UI)
+    
+def open_settings_UI():
+    game_obj.switch_UI(settings)
+    
+        
+
 def exit_game():
     pg.quit()
     sys.exit()
@@ -297,9 +307,9 @@ def main():
             if event.type == pg.KEYDOWN:
                 if event.key == pg.K_ESCAPE:
                     if not game_obj.current_activated_UI_stack:
-                        game_obj.switch_UI(menu) # turn on menu UI when it's currently in the main game
+                        UIopen(menu) # turn on menu UI when it's currently in the main game
                     else:
-                        game_obj.switch_UI() # turn off the last opened UI (Please see UI.switch_UI() for reference, default argument is game_obj.current_activated_UI_stack[-1])
+                        UIreturn() # turn off the last opened UI (Please see UI.switch_UI() for reference, default argument is game_obj.current_activated_UI_stack[-1])
             if game_obj.current_activated_UI_stack: # if UI is turned on
                 sprite.freeze() # freeze is needed as sprite.check_movement stops the sprite only when it detects KEYUP
                 game_obj.current_activated_UI_stack[-1].check_action(event)
@@ -321,7 +331,7 @@ def init_UI():
     menu = UI("menu") 
         
 def init_config() -> None:
-    global FPS, SCREEN_WIDTH, SCREEN_HEIGHT, PATH_TO_SPRITE, bg_color, FONT_FILE_PATH, OPTIONS
+    global FPS, SCREEN_WIDTH, SCREEN_HEIGHT, PATH_TO_SPRITE, bg_color, FONT_FILE_PATH, OPTIONS_ALL_UI
     config = toml.load("config.toml")
     FPS = config["fps"]
     SCREEN_WIDTH = config["screen_width"]
@@ -332,7 +342,7 @@ def init_config() -> None:
     pg.font.init()
     FONT_FILE_PATH = config["font"]["path"]
     # Menu
-    OPTIONS = {
+    OPTIONS_ALL_UI = {
         "menu": config["menu"]["options"],
         "settings": config["settings"]["options"],
     }

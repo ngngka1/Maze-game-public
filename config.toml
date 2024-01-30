@@ -13,5 +13,4 @@ options = ["Continue", "Settings", "Exit"]
 options = ["Difficulty", "Background", "Character", "Theme"]
 
 [font]
-size = 200
 path = 'assets\SunnySpellsBasicRegular-Yz1Wv.ttf'
