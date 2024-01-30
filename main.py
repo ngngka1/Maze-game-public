@@ -220,16 +220,7 @@ class UI:
                 self.chosen_index -= 1
             elif event.key == pg.K_DOWN:
                 self.chosen_index += 1
-            self.chosen_index = max(0, min(self.chosen_index, self.total_action - 1))
-            ## Bitwise operation to make -1 become total_action -1, and make total_action become 0
-            ## self.chosen_index = self.chosen_index = self.chosen_index = (self.chosen_index == -1) * (self.total_action - 1) + (self.chosen_index == self.total_action) * 0 + (self.chosen_index != -1) * (self.chosen_index != self.total_action) * self.chosen_index
-    
-            #1111 (-1)
-            #0000 (0)
-            #0001 (1)
-            #0010 (2)
-            #0011 (3)
-            #0100 (4)
+            self.chosen_index = max(0, self.chosen_index % self.total_action)
                 
     def execute_action(self, i): # execute chosen action
         if callable(self.actions[i]): # if the action is a list, it contains the function and the arguments

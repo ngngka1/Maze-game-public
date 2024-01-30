@@ -1,4 +1,4 @@
-fps = 60
+fps = 45
 screen_width = 1200
 screen_height = 800
 default_background_color = [255,255,255] # white
