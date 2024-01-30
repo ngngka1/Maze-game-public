@@ -1,6 +1,6 @@
 fps = 60
-screen_width = 2000
-screen_height = 1600
+screen_width = 1200
+screen_height = 800
 default_background_color = [255,255,255] # white
 
 [sprite]
@@ -10,7 +10,7 @@ path = 'assets\msedge_4IvGRozQp0.png'
 options = ["Continue", "Settings", "Exit"]
 
 [settings]
-options = ["Difficulty", "Movement speed"]
+options = ["Difficulty", "Background", "Character", "Theme"]
 
 [font]
 size = 200
