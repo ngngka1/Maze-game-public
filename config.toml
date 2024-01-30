@@ -6,8 +6,11 @@ default_background_color = [255,255,255] # white
 [sprite]
 path = 'assets\msedge_4IvGRozQp0.png'
 
-[overlay]
+[menu]
 options = ["Continue", "Settings", "Exit"]
+
+[settings]
+options = ["Difficulty", "Movement speed"]
 
 [font]
 size = 200

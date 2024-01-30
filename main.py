@@ -17,7 +17,7 @@ class Game:
         
         
     def get_level_properties(self) -> None:
-        global wall, goal, sprite, camera, overlay
+        global wall, goal, sprite, camera, menu, settings
         level_prop = toml.load("level_properties.toml")
         
         # Camera property
@@ -42,7 +42,8 @@ class Game:
         goal = Goal(self.grid_width, self.grid_height)
         sprite = Sprite(self.grid_width / 2, self.grid_height / 2)
         camera = Camera(self.camera_size)
-        overlay = UI()
+        menu = UI("menu")
+        settings = UI("settings")
         
         cursor = [0, 0]    
         for i in range(0, len(self.maze_map)):
@@ -179,7 +180,8 @@ class Goal(Collision_object):
         self.grid_rect = rect
         
 class UI:
-    def __init__(self) -> None:
+    def __init__(self, UItype: str) -> None:
+        self.UItype = UItype ## this specifies if the UI is pause menu/settings; have room for improvement for modularity
         self.activated = True
         self.text_box_color_unchosen = (100, 100, 100)
         self.text_box_color_chosen = (0, 0, 0)
@@ -187,18 +189,18 @@ class UI:
         self.FONT = pg.font.Font(FONT_FILE_PATH, 50) ## 
         self.text_box = {}
         self.chosen_index = 0
-        self.overlay_actions = []
-        self.get_overlay_options()
+        self.menu_actions = []
+        self.get_options()
         
-    def get_overlay_options(self):
-        for option in OPTIONS:
-            self.overlay_actions.append(self.get_action_function(option))
+    def get_options(self):
+        for option in OPTIONS[self.UItype]:
+            self.menu_actions.append(self.get_action_function(option))
         
-        for i, option in enumerate(OPTIONS):
+        for i, option in enumerate(OPTIONS[self.UItype]):
             text_surface = self.FONT.render(option, True, self.text_color)
             text_rect = text_surface.get_rect()
             text_rects_distance = text_rect.height + 20 # There is a distance of 20 pixel between each rects
-            text_rect.center = (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - text_rects_distance * ((len(self.overlay_actions) // 2) - i))
+            text_rect.center = (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - text_rects_distance * ((len(self.menu_actions) // 2) - i))
             self.text_box[option] = {
                         "text_surface": text_surface,
                         "rect": text_rect
@@ -221,23 +223,23 @@ class UI:
         if re.search(r"exit", action_str, re.IGNORECASE):
             return pg.quit
         
-    def check_action(self, event):
+    def check_action(self, event):  # check if user changed action
         if event.type == pg.KEYDOWN:
             if event.key == pg.K_RETURN:
                 self.execute_action(self.chosen_index)
             elif event.key == pg.K_UP:
-                overlay.change_option(-1)
+                menu.change_option(-1)
             elif event.key == pg.K_DOWN:
-                overlay.change_option(1)
+                menu.change_option(1)
                 
-    def execute_action(self, i):
-        self.overlay_actions[i]()
+    def execute_action(self, i): # execute chosen action
+        self.menu_actions[i]()
         
     def switch_UI(self) -> None:
         self.activated = not self.activated
         
     def update_UI(self) -> None:
-        for i, option in enumerate(OPTIONS):
+        for i, option in enumerate(OPTIONS[self.UItype]):
             if i == self.chosen_index:
                 pg.draw.rect(game_obj.screen, self.text_box_color_chosen, self.text_box[option]["rect"])
             else:
@@ -245,8 +247,8 @@ class UI:
             game_obj.screen.blit(self.text_box[option]["text_surface"], self.text_box[option]["rect"])
         
 def draw_screen() -> None:
-    if overlay.activated:
-        overlay.update_UI()
+    if menu.activated:
+        menu.update_UI()
     else:
         game_obj.screen.fill(bg_color)
         
@@ -279,10 +281,10 @@ def main():
                 exit_game()
             if event.type == pg.KEYDOWN:
                 if event.key == pg.K_ESCAPE:
-                    overlay.switch_UI()
-            if overlay.activated:
+                    menu.switch_UI()
+            if menu.activated:
                 sprite.freeze() # freeze is needed as sprite.check_movement stops the sprite only when it detects KEYUP
-                overlay.check_action(event)
+                menu.check_action(event)
             else:
                 sprite.check_movement(event)
         sprite.execute_movement()
@@ -292,7 +294,7 @@ def main():
 def init_game() -> None:
     global game_obj
     game_obj = Game()
-    overlay.activated = False
+    menu.activated = False
         
 def init_config() -> None:
     global FPS, SCREEN_WIDTH, SCREEN_HEIGHT, PATH_TO_SPRITE, bg_color, FONT_FILE_PATH, FONT, OPTIONS
@@ -305,7 +307,11 @@ def init_config() -> None:
     # Font
     pg.font.init()
     FONT_FILE_PATH = config["font"]["path"]
-    OPTIONS = config["overlay"]["options"]
+    # Menu
+    OPTIONS = {
+        "menu": config["menu"]["options"],
+        "settings": config["settings"]["options"],
+    }
     
     
     
