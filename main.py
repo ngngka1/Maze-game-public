@@ -5,7 +5,6 @@ import toml
 import sys
 import json
 import re
-import time
 
 class Game:
     def __init__(self, level=1) -> None:
@@ -49,9 +48,6 @@ class Game:
         goal = Goal(grid_width, grid_height)
         sprite = Sprite(grid_width / 2, grid_height / 2)
         camera = Camera(camera_width, camera_height)
-        settings = UI("settings") 
-        menu = UI("menu")
-        self.UI_str_list = {"settings": settings, "menu": menu}
         stats = Stats(self.level)
         
         
@@ -168,7 +164,7 @@ class Camera:
       
 class UI:
     def __init__(self, UItype: str) -> None:
-        self.options = OPTIONS_ALL_UI[UItype] ## this specifies if the UI is pause menu/settings; have room for improvement for modularity
+        self.options_str = OPTIONS_STR_ALL_UI[UItype] ## this specifies if the UI is pause menu/settings; have room for improvement for modularity
         self.activated = False
         self.chosen_index = 0
         self.text_box_color_unchosen = (100, 100, 100)
@@ -180,34 +176,18 @@ class UI:
         self.total_action = len(self.actions)
         
     def get_options(self):
-        for option in self.options:
-            self.actions.append(self.get_action_function(option))
+        for option_str in self.options_str:
+            self.actions.append(get_UI_function(option_str))
         
-        for i, option in enumerate(self.options):
-            text_surface = FONT.render(option, True, self.text_color)
+        for i, option_str in enumerate(self.options_str):
+            text_surface = FONT.render(option_str, True, self.text_color)
             text_rect = text_surface.get_rect()
             text_rects_distance = text_rect.height + 20 # There is a distance of 20 pixel between each rects
             text_rect.center = (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - text_rects_distance * ((len(self.actions) // 2) - i))
-            self.text_box[option] = {
+            self.text_box[option_str] = {
                         "text_surface": text_surface,
                         "rect": text_rect
                     }
-        
-    def get_action_function(self, option_str): # get the function of the respective UI option
-        if re.search(r"\bcontinue\b", option_str, re.IGNORECASE): # Note: \b finds exact match only
-            return UIreturn
-        if re.search(r"\bsettings\b", option_str, re.IGNORECASE):
-            return UIopen # the first element is the function, remaining is the argument
-        if re.search(r"\bexit\b", option_str, re.IGNORECASE):
-            return exit_game
-        if re.search(r"\bdifficulty\b", option_str, re.IGNORECASE):
-            return print("difficulty option found") # temp
-        if re.search(r"\bbackground\b", option_str, re.IGNORECASE):
-            return print("background option found") # temp
-        if re.search(r"\bcharacter\b", option_str, re.IGNORECASE):
-            return print("character option found") # temp
-        if re.search(r"\btheme\b", option_str, re.IGNORECASE):
-            return print("theme option found") # temp
         
     def check_action(self, event):  # check if user changed action
         if event.type == pg.KEYDOWN:
@@ -226,7 +206,7 @@ class UI:
             self.actions[i][0](self.actions[i][1:]) ## calls the function and pass the arguments as a list
              
     def update_UI(self) -> None:
-        for i, option in enumerate(self.options):
+        for i, option in enumerate(self.options_str):
             if i == self.chosen_index:
                 pg.draw.rect(game_obj.screen, self.text_box_color_chosen, self.text_box[option]["rect"])
             else:
@@ -250,10 +230,7 @@ class Stats:
         pg.draw.rect(game_obj.screen, (255, 255, 0), self.time_display_rect)
         self.time_display_surface = FONT.render(f"Time used: {self.time_elapsed}", True, (0, 0, 0))
         game_obj.screen.blit(self.time_display_surface, self.time_display_rect)
-        
-        
-        
-              
+                  
 class Collision_object:
     def __init__(self, width, height) -> None:
         self.width = width
@@ -299,21 +276,39 @@ def draw_game_grid() -> None:
     
     game_obj.screen.blit(sprite.surface_scaled, (sprite.x, sprite.y))
     
-def UIreturn():
+def UIreturn(): # return to the previous UI
     game_obj.switch_UI()
     
-def UIopen(new_UI = None): ##readablity can be improved, anyways this opens the UI with the name of the chosen option
+def UIopen(new_UI = None): # if no argument passed: opens the UI that is chosen; If with argument passed: opens the specified UI by getting the UI object with its name
     if not new_UI:
         current_UI = game_obj.current_activated_UI_stack[-1]
-        new_UI = game_obj.UI_str_list[current_UI.options[current_UI.chosen_index].lower()] # in toml file, the 1st letter of the UI's option is capitalized, so i just put lower() here to avoid key errors
+        new_UI = get_UI_object(current_UI.options_str[current_UI.chosen_index].lower()) # in toml file, the 1st letter of the UI's option is capitalized, so i just put lower() here to avoid key errors
     game_obj.switch_UI(new_UI)
     
-def open_settings_UI():
-    game_obj.switch_UI(settings)
+def get_UI_object(UI_object_str): # just a function to improve the readability of the program
+    return UIname_UIobject_hashmap[UI_object_str]
     
 def exit_game():
     pg.quit()
     sys.exit()
+    
+def get_UI_function(option_str) -> "function": # get the function of the respective UI option
+    if re.search(r"\bnew game\b", option_str, re.IGNORECASE): # Note: \b finds exact match only
+        return UIreturn
+    if re.search(r"\bcontinue\b", option_str, re.IGNORECASE):
+        return UIreturn
+    if re.search(r"\bsettings\b", option_str, re.IGNORECASE):
+        return UIopen # the first element is the function, remaining is the argument
+    if re.search(r"\bexit\b", option_str, re.IGNORECASE):
+        return exit_game
+    if re.search(r"\bdifficulty\b", option_str, re.IGNORECASE):
+        return UIreturn # temp
+    if re.search(r"\bbgm\b", option_str, re.IGNORECASE):
+        return UIreturn# temp
+    if re.search(r"\bcharacter\b", option_str, re.IGNORECASE):
+        return UIreturn # temp
+    if re.search(r"\btheme\b", option_str, re.IGNORECASE):
+        return UIreturn # temp
     
 def main():
     global time_elapsed
@@ -332,7 +327,7 @@ def main():
             if event.type == pg.KEYDOWN:
                 if event.key == pg.K_ESCAPE:
                     if not game_obj.current_activated_UI_stack:
-                        UIopen(menu) # turn on menu UI when it's currently in the main game
+                        UIopen(get_UI_object("menu")) # turn on menu UI when it's currently in the main game
                     else:
                         UIreturn() # turn off the last opened UI (Please see UI.switch_UI() for reference, default argument is game_obj.current_activated_UI_stack[-1])
             if game_obj.current_activated_UI_stack: # if UI is turned on
@@ -348,21 +343,22 @@ def main():
         sprite.execute_movement()
         time_elapsed = (pg.time.get_ticks() - total_paused_time) / 1000.0
         draw_screen()
-        
-                
+                   
 def init_game() -> None:
     global game_obj
-    game_obj = Game()
     init_UI()
+    game_obj = Game()
+    game_obj.current_activated_UI_stack.append(get_UI_object("main_menu"))
     
 def init_UI():
     ## IMPORATANT: each UI object has to be declared in reverse order, as the outer UI (e.g. menu) links to inner UI (e.g. settings), without declaring settings first, initialization of menu will return error. Refer to line 199
-    global menu, settings
-    settings = UI("settings") 
-    menu = UI("menu") 
+    global UIname_UIobject_hashmap
+    UIname_UIobject_hashmap = {}
+    for UI_object_str in OPTIONS_STR_ALL_UI:
+        UIname_UIobject_hashmap[UI_object_str] = UI(UI_object_str) ## Passing in the UI name is necessary to obtain UI options from the global dictionary OPTIONS_STR_ALL_UI
         
 def init_config() -> None:
-    global FPS, SCREEN_WIDTH, SCREEN_HEIGHT, PATH_TO_SPRITE, bg_color, FONT_FILE_PATH, FONT, OPTIONS_ALL_UI
+    global FPS, SCREEN_WIDTH, SCREEN_HEIGHT, PATH_TO_SPRITE, bg_color, FONT_FILE_PATH, FONT, OPTIONS_STR_ALL_UI
     config = toml.load("config.toml")
     FPS = config["fps"]
     SCREEN_WIDTH = config["screen_width"]
@@ -373,10 +369,11 @@ def init_config() -> None:
     pg.font.init()
     FONT_FILE_PATH = config["font"]["path"]
     FONT = pg.font.Font(FONT_FILE_PATH, 50) 
-    # Menu
-    OPTIONS_ALL_UI = {
-        "menu": config["menu"]["options"],
-        "settings": config["settings"]["options"],
+    # UIs
+    OPTIONS_STR_ALL_UI = {
+        "main_menu": config["main_menu"],
+        "menu": config["menu"],
+        "settings": config["settings"]
     }
     
     

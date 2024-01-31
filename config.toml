@@ -3,14 +3,16 @@ screen_width = 1200
 screen_height = 800
 default_background_color = [255,255,255] # white
 
+main_menu = ["New Game", "Settings", "Exit"]
+
+menu = ["Continue", "Settings", "Exit"]
+
+settings = ["Difficulty", "BGM", "Character", "Theme"]
+
+difficulty = []
+
 [sprite]
 path = 'assets\msedge_4IvGRozQp0.png'
-
-[menu]
-options = ["Continue", "Settings", "Exit"]
-
-[settings]
-options = ["Difficulty", "Background", "Character", "Theme"]
 
 [font]
 path = 'assets\SunnySpellsBasicRegular-Yz1Wv.ttf'
