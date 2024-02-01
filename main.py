@@ -276,6 +276,8 @@ def draw_game_grid() -> None:
     
     game_obj.screen.blit(sprite.surface_scaled, (sprite.x, sprite.y))
     
+    
+## Maybe these UI functions can be integrated into a class
 def UIreturn(): # return to the previous UI
     game_obj.switch_UI()
     
@@ -310,6 +312,8 @@ def get_UI_function(option_str) -> "function": # get the function of the respect
     if re.search(r"\btheme\b", option_str, re.IGNORECASE):
         return UIreturn # temp
     
+
+
 def main():
     global time_elapsed
     clock = pg.time.Clock()
