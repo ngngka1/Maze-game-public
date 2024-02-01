@@ -21,9 +21,10 @@ cd venv
 REM check if shells runned is tradiation window shells (cmd/powershell) OR unix-like shells(bash etc.)
 dir /b /ad | findstr /i /x /c:"Scripts" > nul 
 if !errorlevel! == 0 (
-    call ./Scripts/activate.bat
+    call ./Scripts/activate
     if !errorlevel! neq == 0 (
         call ./Scripts/Activate.ps1
+        REM use these if .bat does not work
     )
 ) else ( 
     dir /b /ad | findstr /i /x /c:"bin" > nul 
@@ -53,7 +54,4 @@ for /F "tokens=*" %%A in (requirements.txt) do (
 python main.py
 
 REM try to deactivate virtualenv with cmd command, if fail, run with powershell command
-call venv\Scripts\deactivate.bat
-if !errorlevel! neq == 0 (
-    deactivate
-)
+call deactivate
