@@ -18,7 +18,7 @@ if not (os.path.exists("venv") and os.path.isdir("venv")):
     subprocess.call(r"python -m venv venv", shell=True)
     
 if sys.platform.startswith('win'): # window shells
-    subprocess.call(r".\venv\Scripts\activate", shell=True, executable="cmd.exe") # windows use slash as path separator (/); Also, cmd is the specified shell to avoid powershell-related virtualenv issues
+    subprocess.call(r".\venv\Scripts\activate", shell=True, executable=r"C:\Windows\System32\cmd.exe") # windows use slash as path separator (/); Also, cmd is the specified shell to avoid powershell-related virtualenv issues
 elif sys.platform.startswith('linux') or sys.platform.startswith('darwin'): # unix-like shells
     subprocess.call(r"source ./venv/bin/activate", shell=True) # unix-like shells use backslash as path separator (\)
 else:

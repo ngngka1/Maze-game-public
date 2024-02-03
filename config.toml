@@ -3,23 +3,6 @@ screen_width = 1200
 screen_height = 800
 default_background_color = [255,255,255] # white
 
-[UI]
-main_menu = ["New Game", "Settings", "Exit"]
-
-menu = ["Continue", "Settings", "Return Main Menu"]
-
-settings = ["Difficulty", "BGM", "Character", "Theme"]
-
-return_main_menu = ["Yes", "No"]
-
-difficulty = ["Easy", "Normal", "Hard"]
-
-bgm = ["Track 1", "Track 2", "Track 3"]
-
-character = ["Sprite 1", "Sprite 2"]
-
-theme = ["Dark", "Light"]
-
 [player]
 HP = 10
 path = 'assets\msedge_4IvGRozQp0.png'

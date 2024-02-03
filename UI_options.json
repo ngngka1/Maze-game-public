@@ -1,0 +1,122 @@
+{
+    "function":
+    {
+        "New Game": "new_game",
+        "Settings": "UI_open",
+        "Exit": "exit_game",
+
+        "Continue": "UI_return",
+        "Return Main Menu": "UI_open",
+
+        "Difficulty": "UI_open",
+        "BGM": "UI_open",
+        "Character": "UI_open",
+        "Theme": "UI_open",
+
+        "Yes": "return_main_menu",
+        "No": "UI_return",
+
+        "Easy": "",
+        "Normal": "",
+        "Hard": "",
+
+        "Track 1": "",
+        "Track 2": "",
+        "Track 3": "",
+
+        "Sprite 1": "",
+        "Sprite 2": "",
+
+        "Dark": "",
+        "Light": ""
+    },
+
+    "UI":
+    {
+        "main_menu":
+        {
+            "object": null,
+            "options": 
+            [
+                "New Game",
+                "Settings",
+                "Exit"
+            ]
+        },
+
+        "menu":
+        {
+            "object": null,
+            "options": 
+            [
+                "Continue",
+                "Settings",
+                "Return Main Menu"
+            ]
+        },
+
+        "settings":
+        {
+            "object": null,
+            "options": 
+            [
+                "Difficulty",
+                "BGM",
+                "Character",
+                "Theme"
+            ]
+        },
+
+        "return_main_menu":
+        {
+            "object": null,
+            "options": 
+            [
+                "Yes",
+                "No"
+            ]
+        },
+
+        "difficulty":
+        {
+            "object": null,
+            "options": 
+            [
+                "Easy",
+                "Normal",
+                "Hard"
+            ]
+        },
+
+        "bgm":
+        {
+            "object": null,
+            "options": 
+            [
+                "Track 1",
+                "Track 2",
+                "Track 3"
+            ]
+        },
+
+        "character":
+        {
+            "object": null,
+            "options": 
+            [
+                "Sprite 1",
+                "Sprite 2"
+            ]
+        },
+
+        "theme":
+        {
+            "object": null,
+            "options": 
+            [
+                "Dark",
+                "Light"
+            ]
+        }
+    }
+}
