@@ -64,7 +64,6 @@ class Game:
 class Player:
     def __init__(self, width, height) -> None:
         self.HP = 10
-        self.path = PATH_TO_SPRITE
         self.width = int(width)
         self.height = int(height)
         self.x = width * 2 + 1  # the parameter width and heigth are actually game_obj.grid_width & height divided by 2
@@ -74,7 +73,7 @@ class Player:
         self.move_left = False
         self.move_right = False
         self.movement_speed = self.width // 3
-        self.surface_unscaled = pg.image.load(self.path)
+        self.surface_unscaled = pg.image.load(PATH_TO_SPRITE)
         self.surface_scaled = pg.transform.scale(self.surface_unscaled, (self.width, self.height))
         self.hitbox = pg.Rect(self.x, self.y, self.width, self.height)
         
@@ -83,11 +82,11 @@ class Player:
         if event.type == pg.KEYDOWN:
             if event.key == pg.K_RIGHT:
                 self.move_right = True
-            if event.key == pg.K_LEFT:
+            elif event.key == pg.K_LEFT:
                 self.move_left = True
             if event.key == pg.K_DOWN:
                 self.move_down = True
-            if event.key == pg.K_UP:
+            elif event.key == pg.K_UP:
                 self.move_up = True
             
         if event.type == pg.KEYUP:
@@ -107,11 +106,11 @@ class Player:
         target_y = self.y
         if self.move_up:
             target_y -= self.movement_speed
-        elif self.move_down:
+        if self.move_down:
             target_y += self.movement_speed
         if self.move_left:
             target_x -= self.movement_speed
-        elif self.move_right:
+        if self.move_right:
             target_x += self.movement_speed
             
 
@@ -322,7 +321,7 @@ def exit_game(): # exit game
 def main():
     global time_elapsed
     clock = pg.time.Clock()
-    time_elapsed = 0.001
+    time_elapsed = 0.00000
     total_paused_time = 0
     pause_start_time = 0
     running = True
