@@ -4,7 +4,7 @@ import dfs
 import toml
 import sys
 import json
-import re
+import Astar_search as astar
 
 class Game:
     def __init__(self, level=1, difficulty = "easy") -> None:
@@ -13,6 +13,8 @@ class Game:
         self.level = None
         self.current_activated_UI_stack: list[UI] = []
         self.difficulty = difficulty
+        self.hint_activated = False
+        self.hint_paths = None
           
     def get_level_properties(self, level = 1) -> None:
         global time_elapsed
@@ -31,20 +33,26 @@ class Game:
         
         dfs.makemaze(main_col, main_row) 
         with open("maze_map.json", "r") as maze_map_file:
+            maze_map_2d = json.load(maze_map_file)
+            self.hint_paths = set(astar.Astar_search(maze_map_2d, [1, 1], None, 1))
             maze_map = []
-            for row in json.load(maze_map_file):    # convert the maze from a 2d-array to 1d
-                maze_map += row
+            for i, row in enumerate(maze_map_2d):    # convert the maze from a 2d-array to 1d
+                for j, element in enumerate(row):
+                    if (i, j) in self.hint_paths and element != 2:
+                        maze_map.append(3)
+                    else:
+                        maze_map.append(element)
                 
         self.get_new_game_class_objects(grid_width, grid_height)
 
-        
-        
         cursor = [0, 0]    
         for i in range(0, len(maze_map)):
             if maze_map[i] == 1: # if is wall
-                wall.append_wall_rect(pg.rect.Rect(cursor[0], cursor[1], grid_width, grid_height))
+                wall.append_rect(pg.rect.Rect(cursor[0], cursor[1], wall.width, wall.height))
             elif maze_map[i] == 2: # if is goal
-                goal.set_goal_rect(pg.rect.Rect(cursor[0], cursor[1], grid_width, grid_height))
+                goal.set_goal_rect(pg.rect.Rect(cursor[0], cursor[1], goal.width, goal.height))
+            elif maze_map[i] == 3: # if it is the correct path to goal
+                background.append_rect(pg.rect.Rect(cursor[0], cursor[1], background.width, background.height))
             if i != 0 and (i + 1) % game_col == 0: 
                 cursor[0] = 0
                 cursor[1] += grid_height
@@ -52,9 +60,10 @@ class Game:
                 cursor[0] += grid_width
    
     def get_new_game_class_objects(self, grid_width, grid_height) -> None:
-        global wall, goal, player, camera, stats
+        global wall, goal, player, camera, stats, background
         wall = Wall(grid_width, grid_height)
         goal = Goal(grid_width, grid_height)
+        background = Hint(grid_width // 2, grid_height // 2)
         player = Player(grid_width / 2, grid_height / 2)
         camera_width = grid_width * 10
         camera_height = (grid_width * 10) // (SCREEN_WIDTH / SCREEN_HEIGHT) # substitution of: camera_width / camera_height = width_height ratio               
@@ -205,7 +214,11 @@ class UI:
             self.chosen_index = max(0, self.chosen_index % self.total_option)
                 
     def execute_action(self, i): # execute chosen action
-        globals()[self.options_functions[i]]()
+        if type(self.options_functions[i]) == list:
+            for function_str in self.options_functions[i]: # Used a for loop here for options that do multiple actions
+                globals()[function_str]()
+        else:
+            globals()[self.options_functions[i]]()
              
     def update_UI(self) -> None:
         for i, option_name in enumerate(self.text_box):
@@ -233,34 +246,48 @@ class Stats:
         self.time_display_surface = FONT.render(f"Time used: {self.time_elapsed}", True, (0, 0, 0))
         game_obj.screen.blit(self.time_display_surface, self.time_display_rect)
                   
-class Collision_object:
+class Rect_objects:
     def __init__(self, width, height) -> None:
         self.width = width
         self.height = height
         
-class Wall(Collision_object):
+class Wall(Rect_objects):
     def __init__(self, width, height) -> None:
         super().__init__(width, height)
         self.grid_rect_list = []
         self.color = (0, 0, 0)
         
-    def append_wall_rect(self, rect) -> None:
+    def append_rect(self, rect: pg.Rect) -> None:
         self.grid_rect_list.append(rect)
               
-class Goal(Collision_object):
+class Goal(Rect_objects):
     def __init__(self, width, height) -> None:
         super().__init__(width, height)
         self.grid_rect = None
         self.color = (0, 0, 255)
         
-    def set_goal_rect(self, rect) -> None:
+    def set_goal_rect(self, rect: pg.Rect) -> None:
         self.grid_rect = rect
         
+class Hint(Rect_objects):
+    def __init__(self, width, height) -> None:
+        super().__init__(width, height)
+        self.grid_rect_list = []
+        self.color = (255, 0, 25)
+        
+    def append_rect(self, rect: pg.Rect) -> None:
+        rect.center = (rect.x + self.width, rect.y + self.height)
+        self.grid_rect_list.append(rect)
+        
+
 class Monster:
     def __init__(self, width, height, HP):
         self.width = width
         self.height = height
         self.HP = HP
+      
+def switch_hint():
+    game_obj.hint_activated ^= 1
         
 def draw_screen() -> None:
     if game_obj.current_activated_UI_stack:
@@ -281,6 +308,11 @@ def draw_game_grid() -> None:
     for rectObj in wall.grid_rect_list:
         pg.draw.rect(game_obj.screen, wall.color, rectObj, 10)
     pg.draw.rect(game_obj.screen, goal.color, goal.grid_rect)
+    
+    if game_obj.hint_activated:
+        for path_hint_rect in background.grid_rect_list:
+            pg.draw.rect(game_obj.screen, background.color, path_hint_rect, 0, 5)
+            
     
     game_obj.screen.blit(player.surface_scaled, (player.x, player.y))
     
@@ -303,12 +335,18 @@ def UI_open(new_UI = None): # if no argument passed: opens the UI that is chosen
 def get_UI_object(UI_object_name): # just a function to improve the readability of the program
     return UIs["UI"][UI_object_name.lower().replace(' ', '_')]["object"]
 
-def return_main_menu():
+def UI_return_ultimate():
+    current_UI = game_obj.current_activated_UI_stack[-1]
     for i in range(len(game_obj.current_activated_UI_stack)):
         game_obj.current_activated_UI_stack[i].activated ^= 1
         
-    game_obj.screen.fill(bg_color)
-    game_obj.current_activated_UI_stack = [get_UI_object("main_menu")]
+    game_obj.current_activated_UI_stack = []
+    
+    if current_UI.UI_name == "return_main_menu": ## Note: if this function is called in the return_main_menu UI, 
+        # it means the player confirmed to return to main menu; While if this function is not called from return_main_menu_UI,
+        # it can just be other options using ultimate UI return function
+        game_obj.screen.fill(bg_color)
+        game_obj.current_activated_UI_stack.append(get_UI_object("main_menu"))
    
 def new_game():
     game_obj.get_level_properties()

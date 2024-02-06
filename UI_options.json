@@ -12,8 +12,9 @@
         "BGM": "UI_open",
         "Character": "UI_open",
         "Theme": "UI_open",
+        "Hint": ["switch_hint", "UI_return_ultimate"],
 
-        "Yes": "return_main_menu",
+        "Return to main menu and lose current progress": "UI_return_ultimate",
         "No": "UI_return",
 
         "Easy": "",
@@ -63,7 +64,8 @@
                 "Difficulty",
                 "BGM",
                 "Character",
-                "Theme"
+                "Theme",
+                "Hint"
             ]
         },
 
@@ -72,7 +74,7 @@
             "object": null,
             "options": 
             [
-                "Yes",
+                "Return to main menu and lose current progress",
                 "No"
             ]
         },
