@@ -1,7 +1,7 @@
 fps = 45
 screen_width = 1200
 screen_height = 800
-default_background_color = [255,255,255] # white
+themes = [[255,255,255], [100, 100, 100]] # light, dark
 
 [player]
 HP = 10
@@ -9,3 +9,6 @@ path = 'assets\msedge_4IvGRozQp0.png'
 
 [font]
 path = 'assets\SunnySpellsBasicRegular-Yz1Wv.ttf'
+
+[bgm]
+paths = ['assets\Undertale OST - 015 sans..mp3', 'assets\Undertale OST - 004 Fallen Down.mp3', 'assets\Undertale OST - 059 Spider Dance.mp3']

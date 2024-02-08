@@ -21,15 +21,15 @@
         "Normal": "",
         "Hard": "",
 
-        "Track 1": "",
-        "Track 2": "",
-        "Track 3": "",
+        "Track 1": ["change_bgm"],
+        "Track 2": ["change_bgm"],
+        "Track 3": ["change_bgm"],
 
         "Sprite 1": "",
         "Sprite 2": "",
 
-        "Dark": "",
-        "Light": ""
+        "Dark": "change_theme",
+        "Light": "change_theme"
     },
 
     "UI":
@@ -116,8 +116,8 @@
             "object": null,
             "options": 
             [
-                "Dark",
-                "Light"
+                "Light",
+                "Dark"
             ]
         }
     }

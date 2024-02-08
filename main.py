@@ -5,6 +5,8 @@ import toml
 import sys
 import json
 import Astar_search as astar
+import winsound
+import os
 
 class Game:
     def __init__(self, level=1, difficulty = "easy") -> None:
@@ -15,6 +17,8 @@ class Game:
         self.difficulty = difficulty
         self.hint_activated = False
         self.hint_paths = None
+        self.bgm_track_index = 0
+        self.chosen_theme_index = 0 # white theme by default
           
     def get_level_properties(self, level = 1) -> None:
         global time_elapsed
@@ -172,7 +176,7 @@ class Camera:
     def update(self) -> None:
         self.x = player.x - self.width // 2
         self.y = player.y - self.height // 2
-        self.surface.fill(bg_color)
+        self.surface.fill(THEMES[game_obj.chosen_theme_index])
         self.surface.blit(game_obj.screen, (0, 0), (self.x, self.y, self.width, self.height))
         game_obj.screen.blit(pg.transform.scale(self.surface, (SCREEN_WIDTH, SCREEN_HEIGHT)), (0, 0))
       
@@ -286,15 +290,22 @@ class Monster:
         self.height = height
         self.HP = HP
       
+def change_bgm():
+    game_obj.bgm_track_index = game_obj.current_activated_UI_stack[-1].chosen_index
+    pg.mixer.music.load(BGM[game_obj.bgm_track_index])
+    pg.mixer.music.play()
+  
 def switch_hint():
     game_obj.hint_activated ^= 1
         
 def draw_screen() -> None:
     if game_obj.current_activated_UI_stack:
+        if game_obj.current_activated_UI_stack[0].UI_name == "main_menu":
+            game_obj.screen.fill(THEMES[game_obj.chosen_theme_index])
         pg.draw.rect(game_obj.screen, (0, 0, 255), (SCREEN_WIDTH // 4, SCREEN_HEIGHT // 4, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2), 0, 40)
         game_obj.current_activated_UI_stack[-1].update_UI()
     else:
-        game_obj.screen.fill(bg_color)
+        game_obj.screen.fill(THEMES[game_obj.chosen_theme_index])
 
         draw_game_grid()
         
@@ -345,7 +356,7 @@ def UI_return_ultimate():
     if current_UI.UI_name == "return_main_menu": ## Note: if this function is called in the return_main_menu UI, 
         # it means the player confirmed to return to main menu; While if this function is not called from return_main_menu_UI,
         # it can just be other options using ultimate UI return function
-        game_obj.screen.fill(bg_color)
+        game_obj.screen.fill(THEMES[game_obj.chosen_theme_index])
         game_obj.current_activated_UI_stack.append(get_UI_object("main_menu"))
    
 def new_game():
@@ -355,6 +366,10 @@ def new_game():
 def exit_game(): # exit game
     pg.quit()
     sys.exit()
+
+def change_theme():
+    game_obj.chosen_theme_index ^= 1
+    
 
 def main():
     global time_elapsed
@@ -400,13 +415,13 @@ def init_UI():
         UIs["UI"][UI_name]["object"] = UI(UI_name)
         
 def init_config() -> None:
-    global FPS, SCREEN_WIDTH, SCREEN_HEIGHT, PATH_TO_SPRITE, PLAYER_HP, bg_color, FONT_FILE_PATH, FONT, UIs
+    global FPS, SCREEN_WIDTH, SCREEN_HEIGHT, PATH_TO_SPRITE, PLAYER_HP, THEMES, FONT_FILE_PATH, FONT, UIs, BGM
     config = toml.load("config.toml")
     # Main game
     FPS = config["fps"]
     SCREEN_WIDTH = config["screen_width"]
     SCREEN_HEIGHT = config["screen_height"]
-    bg_color = config["default_background_color"]
+    THEMES = config["themes"]
     # Player
     PATH_TO_SPRITE = config["player"]["path"]
     PLAYER_HP = config["player"]["HP"]
@@ -417,6 +432,9 @@ def init_config() -> None:
     # UIs
     with open("UI_options.json", "r") as UI_options_file:
         UIs = json.load(UI_options_file)
+    # BGMs
+    BGM = config["bgm"]["paths"]
+    
     
 
 if __name__ == "__main__":
@@ -425,6 +443,6 @@ if __name__ == "__main__":
     init_config()
     init_game()
     init_UI()
-    game_obj.screen.fill(bg_color)
     game_obj.current_activated_UI_stack = [get_UI_object("main_menu")]
+    change_bgm()
     main()
