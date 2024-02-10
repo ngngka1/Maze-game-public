@@ -292,9 +292,9 @@ class UI:
                 UI.UI_return()
             elif event.key == pg.K_RETURN:
                 self.execute_action(self.chosen_index)
-            elif event.key == pg.K_UP:
+            elif event.key == pg.K_UP or event.key == pg.K_w:
                 self.chosen_index -= 1
-            elif event.key == pg.K_DOWN:
+            elif event.key == pg.K_DOWN or event.key == pg.K_s:
                 self.chosen_index += 1
             self.chosen_index = max(0, self.chosen_index % self.total_option)
                 
@@ -471,6 +471,7 @@ def main():
     pause_start_time = 0
     running = True
     while running:
+        pg.key.stop_text_input() # Stop text input to allow WASD key to control the sprite
         clock.tick(FPS)
         if Game.instance.current_activated_UI_stack:
             if pause_start_time == 0:
