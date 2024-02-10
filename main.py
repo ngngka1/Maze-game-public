@@ -5,20 +5,25 @@ import toml
 import sys
 import json
 import Astar_search as astar
-import winsound
-import os
+from typing import Union
 
 class Game:
-    def __init__(self, level=1, difficulty = "easy") -> None:
+    instance: Union["Game", None] = None
+    def __init__(self) -> None:
+        if Game.instance is not None:
+            raise Exception("Only 1 game object can be created!")
+        Game.instance = self
         self.screen = pg.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
         pg.display.set_caption("Maze minigame")
         self.level = None
         self.current_activated_UI_stack: list[UI] = []
-        self.difficulty = difficulty
+        
+        self.difficulty_scale = 1
         self.hint_activated = False
         self.hint_paths = None
         self.bgm_track_index = 0
-        self.chosen_theme_index = 0 # white theme by default
+        self.chosen_theme_index = 0
+        self.chosen_sprite_index = 0
           
     def get_level_properties(self, level = 1) -> None:
         global time_elapsed
@@ -26,7 +31,7 @@ class Game:
         level_prop = toml.load("level_properties.toml")
         
         # Map property
-        map_size = level_prop[str(self.level)]["map_size"] # how many grids will be in the level
+        map_size = level_prop[str(self.level)]["map_size"] * self.difficulty_scale # how many grids will be in the level
         width_to_height_ratio = SCREEN_WIDTH / SCREEN_HEIGHT
         main_col = int((map_size / (1 / width_to_height_ratio)) ** (1 / 2)) # w * (height-width ratio) * w = map.size -> w^2 * h/w = map.size -> w = (map.size / (h/w))^0.5
         main_row = int((map_size / width_to_height_ratio) ** (1 / 2)) # h * (width-height ratio) * h = map.size
@@ -74,42 +79,81 @@ class Game:
         camera = Camera(camera_width, camera_height)
         stats = Stats(self.level)
         
+    @staticmethod
+    def new_game():
+        Game.instance.get_level_properties()
+        UI.switch_UI()
+
+    @staticmethod
+    def exit_game(): # exit game
+        pg.quit()
+        sys.exit()
+        
+    @staticmethod
+    def change_difficulty():
+        # Difficulty scale for "Easy", "Normal" and "Hard" are 1, 2, 3 respectively
+        # indices for "Easy", "Normal" and "Hard" in the setting UI are 0, 1, 2; so adding one to it = difficulty scale
+        Game.instance.difficulty_scale = Game.instance.current_activated_UI_stack[-1].chosen_index + 1
+        
+    @staticmethod
+    def switch_hint():
+        Game.instance.hint_activated ^= 1
+        
+    @staticmethod
+    def load_bgm():
+        pg.mixer.music.load(BGM[Game.instance.bgm_track_index])
+        pg.mixer.music.play()
+        pg.mixer.music.set_endevent(pg.USEREVENT)
+            
+    @staticmethod
+    def change_bgm():
+        Game.instance.bgm_track_index = Game.instance.current_activated_UI_stack[-1].chosen_index
+        Game.load_bgm()
+        
+    @staticmethod
+    def change_theme():
+        Game.instance.chosen_theme_index ^= 1
+        
+    @staticmethod
+    def change_sprite():
+        Game.instance.chosen_sprite_index = (Game.instance.chosen_sprite_index + 1) % len(PATHS_TO_SPRITES)
+        
 class Player:
     def __init__(self, width, height) -> None:
         self.HP = 10
         self.width = int(width)
         self.height = int(height)
-        self.x = width * 2 + 1  # the parameter width and heigth are actually game_obj.grid_width & height divided by 2
+        self.x = width * 2 + 1  # the parameter width and heigth are actually Game.instance.grid_width & height divided by 2
         self.y = height * 2 + 1
         self.move_up = False
         self.move_down = False
         self.move_left = False
         self.move_right = False
         self.movement_speed = self.width // 3
-        self.surface_unscaled = pg.image.load(PATH_TO_SPRITE)
-        self.surface_scaled = pg.transform.scale(self.surface_unscaled, (self.width, self.height))
+        self.surface_unscaled = pg.image.load(PATHS_TO_SPRITES[Game.instance.chosen_sprite_index])
+        self.surface_scaled = pg.transform.smoothscale(self.surface_unscaled, (self.width, self.height))
         self.hitbox = pg.Rect(self.x, self.y, self.width, self.height)
         
     def check_movement(self, event) -> None:
 
         if event.type == pg.KEYDOWN:
-            if event.key == pg.K_RIGHT:
+            if event.key == pg.K_RIGHT or event.key == pg.K_d:
                 self.move_right = True
-            elif event.key == pg.K_LEFT:
+            if event.key == pg.K_LEFT or event.key == pg.K_a:
                 self.move_left = True
-            if event.key == pg.K_DOWN:
+            if event.key == pg.K_DOWN or event.key == pg.K_s:
                 self.move_down = True
-            elif event.key == pg.K_UP:
+            if event.key == pg.K_UP or event.key == pg.K_w:
                 self.move_up = True
             
         if event.type == pg.KEYUP:
-            if event.key == pg.K_RIGHT:
+            if event.key == pg.K_RIGHT or event.key == pg.K_d:
                 self.move_right = False
-            if event.key == pg.K_LEFT:
+            if event.key == pg.K_LEFT or event.key == pg.K_a:
                 self.move_left = False
-            if event.key == pg.K_DOWN:
+            if event.key == pg.K_DOWN or event.key == pg.K_s:
                 self.move_down = False
-            if event.key == pg.K_UP:
+            if event.key == pg.K_UP or event.key == pg.K_w:
                 self.move_up = False
     
     def execute_movement(self) -> None:
@@ -156,7 +200,7 @@ class Player:
         
     def pass_check(self):
         if self.hitbox.colliderect(goal.grid_rect):
-            game_obj.get_level_properties(game_obj.level + 1)
+            Game.instance.get_level_properties(Game.instance.level + 1)
             
     def freeze(self):
         self.move_up = False
@@ -176,13 +220,13 @@ class Camera:
     def update(self) -> None:
         self.x = player.x - self.width // 2
         self.y = player.y - self.height // 2
-        self.surface.fill(THEMES[game_obj.chosen_theme_index])
-        self.surface.blit(game_obj.screen, (0, 0), (self.x, self.y, self.width, self.height))
-        game_obj.screen.blit(pg.transform.scale(self.surface, (SCREEN_WIDTH, SCREEN_HEIGHT)), (0, 0))
+        self.surface.fill(THEMES[Game.instance.chosen_theme_index])
+        self.surface.blit(Game.instance.screen, (0, 0), (self.x, self.y, self.width, self.height))
+        Game.instance.screen.blit(pg.transform.scale(self.surface, (SCREEN_WIDTH, SCREEN_HEIGHT)), (0, 0))
       
 class UI:
-    def __init__(self, UI_name: str) -> None:
-        self.UI_name = UI_name
+    def __init__(self, instance_name_raw: str) -> None:
+        self.instance_name_raw = instance_name_raw
         self.activated = False
         self.chosen_index = 0
         self.text_box_color_unchosen = (100, 100, 100)
@@ -190,12 +234,12 @@ class UI:
         self.text_color = (255, 255, 255)
         self.text_box = {}
         self.options_functions = []
-        self.total_option = len(UIs["UI"][self.UI_name]["options"])
+        self.total_option = len(UIs[self.instance_name_raw]["options"])
         self.get_options()
     
     def get_options(self):
-        for i, option_name in enumerate(UIs["UI"][self.UI_name]["options"]):
-            self.options_functions.append(UIs["function"][option_name])
+        for i, option_name in enumerate(UIs[self.instance_name_raw]["options"]):
+            self.options_functions.append(FUNCTIONS[option_name])
             text_surface = FONT.render(option_name, True, self.text_color)
             text_rect = text_surface.get_rect()
             text_rects_distance = text_rect.height + 20 # There is a distance of 20 pixel between each rects
@@ -205,10 +249,47 @@ class UI:
                         "rect": text_rect
                     }
         
+    @staticmethod
+    def switch_UI(UI_object = None): 
+        if not UI_object: # UIreturn
+            Game.instance.current_activated_UI_stack.pop().activated ^= 1
+        else: # UIopen
+            Game.instance.current_activated_UI_stack.append(UI_object)
+            UI_object.activated ^= 1
+            
+    @staticmethod
+    def UI_return(): # return to the previous UI
+        UI.switch_UI()
+        
+    @staticmethod
+    def UI_open(new_UI = None): # if no argument passed: opens the UI that is chosen; If with argument passed: opens the specified UI by getting the UI object with its name
+        if not new_UI:
+            current_UI = Game.instance.current_activated_UI_stack[-1]
+            new_UI = UI.get_instance(UIs[current_UI.instance_name_raw]["options"][current_UI.chosen_index]) # in toml file, the 1st letter of the UI's option is capitalized, so i just put lower() here to avoid key errors
+        UI.switch_UI(new_UI)
+        
+    @staticmethod
+    def get_instance(UI_instance_name_raw): # just a function to improve the readability of the program
+        return UIs[UI_instance_name_raw.lower().replace(' ', '_')]["instance"] # lower() and replace() functions to change the raw instance name according to snake_case naming rules
+
+    @staticmethod
+    def UI_return_ultimate():
+        current_UI = Game.instance.current_activated_UI_stack[-1]
+        for i in range(len(Game.instance.current_activated_UI_stack)):
+            Game.instance.current_activated_UI_stack[i].activated ^= 1
+            
+        Game.instance.current_activated_UI_stack = []
+        
+        if current_UI.instance_name_raw == "return_main_menu": ## Note: if this function is called in the return_main_menu UI, 
+            # it means the player confirmed to return to main menu; While if this function is not called from return_main_menu_UI,
+            # it can just be other options using ultimate UI return function
+            Game.instance.screen.fill(THEMES[Game.instance.chosen_theme_index])
+            Game.instance.current_activated_UI_stack.append(UI.get_instance("main_menu"))
+        
     def check_action(self, event):  # check if user changed action
         if event.type == pg.KEYDOWN:
-            if event.key == pg.K_ESCAPE and game_obj.current_activated_UI_stack[-1].UI_name != "main_menu":
-                UI_return()
+            if event.key == pg.K_ESCAPE and Game.instance.current_activated_UI_stack[-1].instance_name_raw != "main_menu":
+                UI.UI_return()
             elif event.key == pg.K_RETURN:
                 self.execute_action(self.chosen_index)
             elif event.key == pg.K_UP:
@@ -218,19 +299,19 @@ class UI:
             self.chosen_index = max(0, self.chosen_index % self.total_option)
                 
     def execute_action(self, i): # execute chosen action
-        if type(self.options_functions[i]) == list:
-            for function_str in self.options_functions[i]: # Used a for loop here for options that do multiple actions
-                globals()[function_str]()
+        if type(self.options_functions[i]) == tuple:
+            for function in self.options_functions[i]:
+                function()
         else:
-            globals()[self.options_functions[i]]()
+            self.options_functions[i]()
              
     def update_UI(self) -> None:
         for i, option_name in enumerate(self.text_box):
             if i == self.chosen_index:
-                pg.draw.rect(game_obj.screen, self.text_box_color_chosen, self.text_box[option_name]["rect"])
+                pg.draw.rect(Game.instance.screen, self.text_box_color_chosen, self.text_box[option_name]["rect"])
             else:
-                pg.draw.rect(game_obj.screen, self.text_box_color_unchosen, self.text_box[option_name]["rect"], 0, 3)
-            game_obj.screen.blit(self.text_box[option_name]["text_surface"], self.text_box[option_name]["rect"])
+                pg.draw.rect(Game.instance.screen, self.text_box_color_unchosen, self.text_box[option_name]["rect"], 0, 3)
+            Game.instance.screen.blit(self.text_box[option_name]["text_surface"], self.text_box[option_name]["rect"])
       
 class Stats:
     def __init__(self, current_level, time_elapsed = 0):
@@ -243,12 +324,12 @@ class Stats:
         
     def update_stats_overlay(self):
         self.time_elapsed = time_elapsed
-        pg.draw.rect(game_obj.screen, (255, 255, 0), self.level_display_rect)
-        game_obj.screen.blit(self.level_display_surface, self.level_display_rect)
+        pg.draw.rect(Game.instance.screen, (255, 255, 0), self.level_display_rect)
+        Game.instance.screen.blit(self.level_display_surface, self.level_display_rect)
         
-        pg.draw.rect(game_obj.screen, (255, 255, 0), self.time_display_rect)
+        pg.draw.rect(Game.instance.screen, (255, 255, 0), self.time_display_rect)
         self.time_display_surface = FONT.render(f"Time used: {self.time_elapsed}", True, (0, 0, 0))
-        game_obj.screen.blit(self.time_display_surface, self.time_display_rect)
+        Game.instance.screen.blit(self.time_display_surface, self.time_display_rect)
                   
 class Rect_objects:
     def __init__(self, width, height) -> None:
@@ -283,29 +364,20 @@ class Hint(Rect_objects):
         rect.center = (rect.x + self.width, rect.y + self.height)
         self.grid_rect_list.append(rect)
         
-
 class Monster:
     def __init__(self, width, height, HP):
         self.width = width
         self.height = height
         self.HP = HP
-      
-def change_bgm():
-    game_obj.bgm_track_index = game_obj.current_activated_UI_stack[-1].chosen_index
-    pg.mixer.music.load(BGM[game_obj.bgm_track_index])
-    pg.mixer.music.play()
-  
-def switch_hint():
-    game_obj.hint_activated ^= 1
         
 def draw_screen() -> None:
-    if game_obj.current_activated_UI_stack:
-        if game_obj.current_activated_UI_stack[0].UI_name == "main_menu":
-            game_obj.screen.fill(THEMES[game_obj.chosen_theme_index])
-        pg.draw.rect(game_obj.screen, (0, 0, 255), (SCREEN_WIDTH // 4, SCREEN_HEIGHT // 4, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2), 0, 40)
-        game_obj.current_activated_UI_stack[-1].update_UI()
+    if Game.instance.current_activated_UI_stack:
+        if Game.instance.current_activated_UI_stack[0].instance_name_raw == "main_menu":
+            Game.instance.screen.fill(THEMES[Game.instance.chosen_theme_index])
+        pg.draw.rect(Game.instance.screen, (0, 0, 255), (SCREEN_WIDTH // 4, SCREEN_HEIGHT // 4, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2), 0, 40)
+        Game.instance.current_activated_UI_stack[-1].update_UI()
     else:
-        game_obj.screen.fill(THEMES[game_obj.chosen_theme_index])
+        Game.instance.screen.fill(THEMES[Game.instance.chosen_theme_index])
 
         draw_game_grid()
         
@@ -317,125 +389,115 @@ def draw_screen() -> None:
         
 def draw_game_grid() -> None:
     for rectObj in wall.grid_rect_list:
-        pg.draw.rect(game_obj.screen, wall.color, rectObj, 10)
-    pg.draw.rect(game_obj.screen, goal.color, goal.grid_rect)
+        pg.draw.rect(Game.instance.screen, wall.color, rectObj, 10)
+    pg.draw.rect(Game.instance.screen, goal.color, goal.grid_rect)
     
-    if game_obj.hint_activated:
+    if Game.instance.hint_activated:
         for path_hint_rect in background.grid_rect_list:
-            pg.draw.rect(game_obj.screen, background.color, path_hint_rect, 0, 5)
+            pg.draw.rect(Game.instance.screen, background.color, path_hint_rect, 0, 5)
             
     
-    game_obj.screen.blit(player.surface_scaled, (player.x, player.y))
-    
-def switch_UI(UI_object = None): 
-    if not UI_object: # UIreturn
-        game_obj.current_activated_UI_stack.pop().activated ^= 1
-    else: # UIopen
-        game_obj.current_activated_UI_stack.append(UI_object)
-        UI_object.activated ^= 1
-
-def UI_return(): # return to the previous UI
-    switch_UI()
-    
-def UI_open(new_UI = None): # if no argument passed: opens the UI that is chosen; If with argument passed: opens the specified UI by getting the UI object with its name
-    if not new_UI:
-        current_UI = game_obj.current_activated_UI_stack[-1]
-        new_UI = get_UI_object(UIs["UI"][current_UI.UI_name]["options"][current_UI.chosen_index]) # in toml file, the 1st letter of the UI's option is capitalized, so i just put lower() here to avoid key errors
-    switch_UI(new_UI)
-    
-def get_UI_object(UI_object_name): # just a function to improve the readability of the program
-    return UIs["UI"][UI_object_name.lower().replace(' ', '_')]["object"]
-
-def UI_return_ultimate():
-    current_UI = game_obj.current_activated_UI_stack[-1]
-    for i in range(len(game_obj.current_activated_UI_stack)):
-        game_obj.current_activated_UI_stack[i].activated ^= 1
-        
-    game_obj.current_activated_UI_stack = []
-    
-    if current_UI.UI_name == "return_main_menu": ## Note: if this function is called in the return_main_menu UI, 
-        # it means the player confirmed to return to main menu; While if this function is not called from return_main_menu_UI,
-        # it can just be other options using ultimate UI return function
-        game_obj.screen.fill(THEMES[game_obj.chosen_theme_index])
-        game_obj.current_activated_UI_stack.append(get_UI_object("main_menu"))
-   
-def new_game():
-    game_obj.get_level_properties()
-    switch_UI()
-
-def exit_game(): # exit game
-    pg.quit()
-    sys.exit()
-
-def change_theme():
-    game_obj.chosen_theme_index ^= 1
-    
-
-def main():
-    global time_elapsed
-    clock = pg.time.Clock()
-    time_elapsed = 0.00000
-    total_paused_time = 0
-    pause_start_time = 0
-    running = True
-    while running:
-        clock.tick(FPS)
-        if game_obj.current_activated_UI_stack:
-            if pause_start_time == 0:
-                pause_start_time = pg.time.get_ticks()
-        for event in pg.event.get():
-            if event.type == pg.QUIT:
-                running = False
-                exit_game()
-            if event.type == pg.KEYDOWN:
-                if game_obj.current_activated_UI_stack: # if UI is turned on
-                    game_obj.current_activated_UI_stack[-1].check_action(event)
-                else:
-                    if event.key == pg.K_ESCAPE:
-                        UI_open(get_UI_object("menu")) # turn on menu UI when it's currently in the main game
-                        player.freeze() # freeze is needed as sprite.check_movement stops the sprite only when it detects KEYUP
-                             
-                    if pause_start_time != 0:
-                        total_paused_time += pg.time.get_ticks() - pause_start_time
-                        pause_start_time = 0
-            
-        if not game_obj.current_activated_UI_stack:
-            player.check_movement(event)
-            player.execute_movement()
-        
-        time_elapsed = (pg.time.get_ticks() - total_paused_time) / 1000.0
-        draw_screen()
+    Game.instance.screen.blit(player.surface_scaled, (player.x, player.y))
                    
 def init_game() -> None:
-    global game_obj
-    game_obj = Game()
+    Game()
 
 def init_UI():
-    for UI_name in UIs["UI"]:
-        UIs["UI"][UI_name]["object"] = UI(UI_name)
+    global UIs, FUNCTIONS
+    with open("UI_options.json", "r") as UI_options_file:
+        UIs = json.load(UI_options_file)
+    # For options to call function, new key-value pairs have to be added here, in which FUNCTIONS[option_name_raw] = function
+    FUNCTIONS = {
+        "New Game": Game.new_game,
+        "Settings": UI.UI_open,
+        "Exit": Game.exit_game,
+
+        "Continue": UI.UI_return,
+        "Return Main Menu": UI.UI_open,
+
+        "Difficulty": UI.UI_open,
+        "BGM": UI.UI_open,
+        "Character": UI.UI_open,
+        "Theme": UI.UI_open,
+        "Hint": (Game.switch_hint, UI.UI_return_ultimate),
+
+        "Return to main menu and lose current progress": UI.UI_return_ultimate,
+        "No": UI.UI_return,
+
+        "Easy": (Game.change_difficulty, UI.UI_return),
+        "Normal": (Game.change_difficulty, UI.UI_return),
+        "Hard": (Game.change_difficulty, UI.UI_return),
+
+        "Track 1": (Game.change_bgm, UI.UI_return),
+        "Track 2": (Game.change_bgm, UI.UI_return),
+        "Track 3": (Game.change_bgm, UI.UI_return),
+
+        "Sprite 1": (Game.change_sprite, UI.UI_return),
+        "Sprite 2": (Game.change_sprite, UI.UI_return),
+
+        "Dark": (Game.change_theme, UI.UI_return),
+        "Light": (Game.change_theme, UI.UI_return)
+    }
+    for instance_name_raw in UIs:
+        UIs[instance_name_raw]["instance"] = UI(instance_name_raw)
+    del FUNCTIONS
         
 def init_config() -> None:
-    global FPS, SCREEN_WIDTH, SCREEN_HEIGHT, PATH_TO_SPRITE, PLAYER_HP, THEMES, FONT_FILE_PATH, FONT, UIs, BGM
     config = toml.load("config.toml")
     # Main game
+    global FPS, SCREEN_WIDTH, SCREEN_HEIGHT, THEMES
     FPS = config["fps"]
     SCREEN_WIDTH = config["screen_width"]
     SCREEN_HEIGHT = config["screen_height"]
     THEMES = config["themes"]
     # Player
-    PATH_TO_SPRITE = config["player"]["path"]
+    global PATHS_TO_SPRITES, PLAYER_HP
+    PATHS_TO_SPRITES = config["player"]["paths"]
     PLAYER_HP = config["player"]["HP"]
     # Font
+    global FONT_FILE_PATH, FONT
     pg.font.init()
     FONT_FILE_PATH = config["font"]["path"]
     FONT = pg.font.Font(FONT_FILE_PATH, 50) 
-    # UIs
-    with open("UI_options.json", "r") as UI_options_file:
-        UIs = json.load(UI_options_file)
     # BGMs
+    global BGM
     BGM = config["bgm"]["paths"]
     
-    
+def main():
+    global time_elapsed
+    clock = pg.time.Clock()
+    time_elapsed = 0.000000
+    total_paused_time = 0
+    pause_start_time = 0
+    running = True
+    while running:
+        clock.tick(FPS)
+        if Game.instance.current_activated_UI_stack:
+            if pause_start_time == 0:
+                pause_start_time = pg.time.get_ticks()
+        for event in pg.event.get():
+            if event.type == pg.QUIT:
+                running = False
+                Game.exit_game()
+            if event.type == pg.USEREVENT:
+                Game.load_bgm()
+            if event.type == pg.KEYDOWN:
+                if Game.instance.current_activated_UI_stack: # if UI is turned on
+                    Game.instance.current_activated_UI_stack[-1].check_action(event)
+                else:
+                    if event.key == pg.K_ESCAPE:
+                        UI.UI_open(UI.get_instance("menu")) # turn on menu UI when it's currently in the main game
+                        player.freeze() # freeze is needed as sprite.check_movement stops the sprite only when it detects KEYUP
+            
+        if not Game.instance.current_activated_UI_stack:
+            if pause_start_time != 0:
+                total_paused_time += pg.time.get_ticks() - pause_start_time
+                pause_start_time = 0
+            player.check_movement(event)
+            player.execute_movement()
+        
+        time_elapsed = (pg.time.get_ticks() - total_paused_time) / 1000.0
+        draw_screen()
 
 if __name__ == "__main__":
     pg.init()
@@ -443,6 +505,6 @@ if __name__ == "__main__":
     init_config()
     init_game()
     init_UI()
-    game_obj.current_activated_UI_stack = [get_UI_object("main_menu")]
-    change_bgm()
+    Game.instance.current_activated_UI_stack = [UI.get_instance("main_menu")]
+    Game.load_bgm()
     main()

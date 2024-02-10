@@ -1,124 +1,88 @@
 {
-    "function":
+    "main_menu":
     {
-        "New Game": "new_game",
-        "Settings": "UI_open",
-        "Exit": "exit_game",
-
-        "Continue": "UI_return",
-        "Return Main Menu": "UI_open",
-
-        "Difficulty": "UI_open",
-        "BGM": "UI_open",
-        "Character": "UI_open",
-        "Theme": "UI_open",
-        "Hint": ["switch_hint", "UI_return_ultimate"],
-
-        "Return to main menu and lose current progress": "UI_return_ultimate",
-        "No": "UI_return",
-
-        "Easy": "",
-        "Normal": "",
-        "Hard": "",
-
-        "Track 1": ["change_bgm"],
-        "Track 2": ["change_bgm"],
-        "Track 3": ["change_bgm"],
-
-        "Sprite 1": "",
-        "Sprite 2": "",
-
-        "Dark": "change_theme",
-        "Light": "change_theme"
+        "instance": null,
+        "options": 
+        [
+            "New Game",
+            "Settings",
+            "Exit"
+        ]
     },
 
-    "UI":
+    "menu":
     {
-        "main_menu":
-        {
-            "object": null,
-            "options": 
-            [
-                "New Game",
-                "Settings",
-                "Exit"
-            ]
-        },
+        "instance": null,
+        "options": 
+        [
+            "Continue",
+            "Settings",
+            "Return Main Menu"
+        ]
+    },
 
-        "menu":
-        {
-            "object": null,
-            "options": 
-            [
-                "Continue",
-                "Settings",
-                "Return Main Menu"
-            ]
-        },
+    "settings":
+    {
+        "instance": null,
+        "options": 
+        [
+            "Difficulty",
+            "BGM",
+            "Character",
+            "Theme",
+            "Hint"
+        ]
+    },
 
-        "settings":
-        {
-            "object": null,
-            "options": 
-            [
-                "Difficulty",
-                "BGM",
-                "Character",
-                "Theme",
-                "Hint"
-            ]
-        },
+    "return_main_menu":
+    {
+        "instance": null,
+        "options": 
+        [
+            "Return to main menu and lose current progress",
+            "No"
+        ]
+    },
 
-        "return_main_menu":
-        {
-            "object": null,
-            "options": 
-            [
-                "Return to main menu and lose current progress",
-                "No"
-            ]
-        },
+    "difficulty":
+    {
+        "instance": null,
+        "options": 
+        [
+            "Easy",
+            "Normal",
+            "Hard"
+        ]
+    },
 
-        "difficulty":
-        {
-            "object": null,
-            "options": 
-            [
-                "Easy",
-                "Normal",
-                "Hard"
-            ]
-        },
+    "bgm":
+    {
+        "instance": null,
+        "options": 
+        [
+            "Track 1",
+            "Track 2",
+            "Track 3"
+        ]
+    },
 
-        "bgm":
-        {
-            "object": null,
-            "options": 
-            [
-                "Track 1",
-                "Track 2",
-                "Track 3"
-            ]
-        },
+    "character":
+    {
+        "instance": null,
+        "options": 
+        [
+            "Sprite 1",
+            "Sprite 2"
+        ]
+    },
 
-        "character":
-        {
-            "object": null,
-            "options": 
-            [
-                "Sprite 1",
-                "Sprite 2"
-            ]
-        },
-
-        "theme":
-        {
-            "object": null,
-            "options": 
-            [
-                "Light",
-                "Dark"
-            ]
-        }
+    "theme":
+    {
+        "instance": null,
+        "options": 
+        [
+            "Light",
+            "Dark"
+        ]
     }
 }
