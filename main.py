@@ -64,8 +64,8 @@ class Game:
         
         generate_map(maze_column, maze_row, maze_generation_algorithm, item_appearance_rate)
         with open("maze_map.json", "r") as maze_map_file:
-            maze_map = json.load(maze_map_file)
-            maze_map_hints = set(Astar_search(maze_map, [1, 1], None, 1))
+            self.maze_map = json.load(maze_map_file)
+            # maze_map_hints = set(Astar_search(maze_map, [1, 1], None, 1))
                 
         self.get_new_game_class_objects(self.grid_width, self.grid_height)
 
@@ -73,14 +73,11 @@ class Game:
         for row_num in range(0, maze_row):
             cursor = [0, row_num * self.grid_height]
             for column_num in range(0, maze_column):
-                if (row_num, column_num) in maze_map_hints: # if it path to goal
-                    hint.append_rect(RectObject(cursor[0], cursor[1], hint.default_width, hint.default_height, (255, 0, 25), 0, 5))
-                
-                if maze_map[row_num][column_num] == 1: # if is wall
+                if self.maze_map[row_num][column_num] == 1: # if is wall
                     wall.append_rect(RectObject(cursor[0], cursor[1], wall.default_width, wall.default_height, (0, 0, 0), 5, 2))
-                elif maze_map[row_num][column_num] == 2: # if is goal
+                elif self.maze_map[row_num][column_num] == 2: # if is goal
                     goal.append_rect(RectObject(cursor[0], cursor[1], goal.default_width, goal.default_height, (0, 0, 255), 0, 2))
-                elif maze_map[row_num][column_num] == 3: # if is item
+                elif self.maze_map[row_num][column_num] == 3: # if is item
                     items.append_surface(SurfaceObject(cursor[0], cursor[1], items.default_width, items.default_height))
                 cursor[0] += self.grid_width
    
@@ -120,6 +117,7 @@ class Game:
     @staticmethod
     def activate_hint(): # I have to seaparate activate and deactivate due to possiblity
         hint.activated = True # that player might get two path hint item in a short period of time
+        hint.get_hint()
         
     @staticmethod
     def deactivate_hint():
@@ -194,10 +192,6 @@ class Player:
                         self.hitbox.x -= (self.hitbox.x + self.width) - rect_object.x
                     else:
                         self.hitbox.x += (rect_object.x + rect_object.width) - self.hitbox.x
-                    # if rect.x - self.width >= self.x:
-                    #     self.hitbox.x = self.x + (rect.x - (self.x + self.width)) - 2
-                    # else:
-                    #     self.hitbox.x = self.x - (self.x - (rect.x + rect.width)) + 2
                     
             
         if target_y != self.y:
@@ -438,6 +432,13 @@ class Hint(RectObject):
         self.default_height = height
         self.activated = False
         self.append_rect = center_wrapper(self.append_rect)
+        
+    def get_hint(self):
+        self.rect_object_list = []
+        paths = Astar_search(Game.instance.maze_map, (int(player.x // Game.instance.grid_width), int(player.y // Game.instance.grid_height)), None, 1)
+        for path in paths:
+            hint.append_rect(RectObject(path[1] * Game.instance.grid_width, path[0] * Game.instance.grid_height, hint.default_width, hint.default_height, (255, 0, 25), 0, 5))
+
         
 class Items(SurfaceObject):
     __items = (
