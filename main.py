@@ -6,11 +6,14 @@ import sys
 import json
 from Astar_search import Astar_search
 from typing import Union
+from ListNode import ListNode
 import threading
 import time
 import random
+import inspect
 
-def time_count(seconds = 5):
+def time_count():
+    seconds = 5
     for i in range(0, seconds * 20):
         # remaining_time = seconds - i # might be used in the future
         if terminate_thread_event.is_set(): # if need to terminate
@@ -18,13 +21,13 @@ def time_count(seconds = 5):
         time.sleep(0.05)
         
 def center_wrapper(func):
-    def center(object):
+    def center(object: SurfaceObject | RectObject, *args):
         object.x += (Game.instance.grid_width - object.width) // 2
         object.y += (Game.instance.grid_height - object.height) // 2
         if type(object) is RectObject:
             object.rect.x = object.x
             object.rect.y = object.y
-        func(object)
+        return func(object, *args)
     return center
 
 class Game:
@@ -74,11 +77,11 @@ class Game:
             cursor = [0, row_num * self.grid_height]
             for column_num in range(0, maze_column):
                 if self.maze_map[row_num][column_num] == 1: # if is wall
-                    wall.append_rect(RectObject(cursor[0], cursor[1], wall.default_width, wall.default_height, (0, 0, 0), 5, 2))
+                    wall.append_rect_object(RectObject(cursor[0], cursor[1], wall.default_width, wall.default_height, (0, 0, 0), 5, 2))
                 elif self.maze_map[row_num][column_num] == 2: # if is goal
-                    goal.append_rect(RectObject(cursor[0], cursor[1], goal.default_width, goal.default_height, (0, 0, 255), 0, 2))
+                    goal.append_rect_object(RectObject(cursor[0], cursor[1], goal.default_width, goal.default_height, (0, 0, 255), 0, 2))
                 elif self.maze_map[row_num][column_num] == 3: # if is item
-                    items.append_surface(SurfaceObject(cursor[0], cursor[1], items.default_width, items.default_height))
+                    items.append_surface_object(SurfaceObject(cursor[0], cursor[1], items.default_width, items.default_height))
                 cursor[0] += self.grid_width
    
     def get_new_game_class_objects(self, grid_width, grid_height) -> None:
@@ -90,7 +93,10 @@ class Game:
         
         GAME_OBJECTS = (wall, goal, hint, items)
         
-        player = Player(grid_width / 2, grid_height / 2)
+        if self.level > 1:
+            player = Player(grid_width / 2, grid_height / 2, player.HP)
+        else:
+            player = Player(grid_width / 2, grid_height / 2, PLAYER_HP)
         camera = Camera(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2)
         stats = Stats(self.level)
         
@@ -115,9 +121,9 @@ class Game:
         Game.instance.difficulty = UIs[current_UI.instance_name_raw]["options"][current_UI.chosen_index].lower()
         
     @staticmethod
-    def activate_hint(): # I have to seaparate activate and deactivate due to possiblity
+    def activate_hint(item_surface_object): # I have to seaparate activate and deactivate due to possiblity
         hint.activated = True # that player might get two path hint item in a short period of time
-        hint.get_hint()
+        hint.get_hint(item_surface_object)
         
     @staticmethod
     def deactivate_hint():
@@ -147,8 +153,8 @@ class Game:
         player.HP += 1
         
 class Player:
-    def __init__(self, width, height) -> None:
-        self.HP = PLAYER_HP
+    def __init__(self, width, height, current_HP = None) -> None:
+        self.HP = current_HP
         self.width = int(width)
         self.height = int(height)
         self.x = width * 2 + 1  # the parameter width and heigth are actually Game.instance.grid_width & height divided by 2
@@ -223,10 +229,11 @@ class Player:
             Game.instance.get_level_properties(Game.instance.level + 1)
             
     def obtained_item_check(self):
-        for i, item in enumerate(items.surface_object_list):
+        for item_node in items.surface_object_list.nodes():
+            item: SurfaceObject = item_node.val
             if self.hitbox.colliderect(pg.rect.Rect(item.x, item.y, item.width, item.height)):
-                items.obtained()
-                items.surface_object_list.pop(i)
+                ListNode.pop(item_node)
+                items.obtained(**{"item_surface_object": item})
                 break
    
 class Camera:
@@ -245,6 +252,7 @@ class Camera:
         Game.instance.screen.blit(pg.transform.scale(self.surface, (SCREEN_WIDTH, SCREEN_HEIGHT)), (0, 0))
       
 class UI:
+    functions = None
     def __init__(self, instance_name_raw: str) -> None:
         self.instance_name_raw = instance_name_raw
         self.activated = False
@@ -259,7 +267,7 @@ class UI:
     
     def get_options(self):
         for i, option_name in enumerate(UIs[self.instance_name_raw]["options"]):
-            self.options_functions.append(FUNCTIONS[option_name])
+            self.options_functions.append(UI.functions[option_name])
             text_surface = FONT.render(option_name, True, self.text_color)
             text_rect = text_surface.get_rect()
             text_rects_distance = text_rect.height + 20 # There is a distance of 20 pixel between each rects
@@ -358,14 +366,12 @@ class Stats:
         cursor = [self.level_display_rect.x, self.HP_display_y]
         for i in range(player.HP):
             Game.instance.screen.blit(self.HP_display_surface, (cursor[0], cursor[1]))
-            if i != 0 and i % 5 == 0:
+            if i != 0 and (i + 1) % 5 == 0:
                 cursor[0] = self.level_display_rect.x
                 cursor[1] += 30 + 10
             else:
                 cursor[0] += 30 + 10
-        
-    
-                  
+                         
 class RectObject:
     def __init__(self, x=None, y=None, width=None, height=None, color=(0, 0, 0), border_width=0, border_radius=0) -> None:
         self.activated = True
@@ -384,14 +390,13 @@ class RectObject:
         else:
             self.rect_object_list: list[RectObject] = []
         
-    def append_rect(self, rect_object):
+    def append_rect_object(self, rect_object):
         self.rect_object_list.append(rect_object)
         
     def print(self):
         for rect_object in self.rect_object_list:
             pg.draw.rect(Game.instance.screen, rect_object.rect_color, rect_object.rect, rect_object.rect_border_width, rect_object.rect_border_radius)
-        
-        
+               
 class SurfaceObject:
     def __init__(self, x=None, y=None, width=None, height=None) -> None:
         self.activated = True
@@ -405,13 +410,12 @@ class SurfaceObject:
         else:
             self.surface_object_list: list[SurfaceObject] = []
     
-    def append_surface(self, surface_object):
+    def append_surface_object(self, surface_object):
         self.surface_object_list.append(surface_object)
         
     def print(self):
         for surface_object in self.surface_object_list:
             Game.instance.screen.blit(surface_object.scaled_surface, (surface_object.x, surface_object.y))
-        
         
 class Wall(RectObject):
     def __init__(self, width, height) -> None:
@@ -431,13 +435,16 @@ class Hint(RectObject):
         self.default_width = width
         self.default_height = height
         self.activated = False
-        self.append_rect = center_wrapper(self.append_rect)
+        self.append_rect_object = center_wrapper(self.append_rect_object)
         
-    def get_hint(self):
+    def get_hint(self, item_surface_object: SurfaceObject):
         self.rect_object_list = []
-        paths = Astar_search(Game.instance.maze_map, (int(player.x // Game.instance.grid_width), int(player.y // Game.instance.grid_height)), None, 1)
+        # get the center of the player and get its current grid
+        row_num = item_surface_object.y // Game.instance.grid_height
+        column_num = item_surface_object.x // Game.instance.grid_width
+        paths = Astar_search(Game.instance.maze_map, (column_num, row_num), None, 1)
         for path in paths:
-            hint.append_rect(RectObject(path[1] * Game.instance.grid_width, path[0] * Game.instance.grid_height, hint.default_width, hint.default_height, (255, 0, 25), 0, 5))
+            hint.append_rect_object(RectObject(path[1] * Game.instance.grid_width, path[0] * Game.instance.grid_height, hint.default_width, hint.default_height, (255, 0, 25), 0, 5))
 
         
 class Items(SurfaceObject):
@@ -449,32 +456,45 @@ class Items(SurfaceObject):
         
         
     )
+    
     def __init__(self, width, height) -> None:
         super().__init__(None, None, width, height)
         self.default_width = width
         self.default_height = height
-        self.append_surface = center_wrapper(self.append_surface)
-        
+        self.list_tail = self.surface_object_list = ListNode()
+        # this line converts the function from performing action of appending to list,
+        # to action of appending to a linked list, while requiring 2 additional arguments,
+        # which are now (self, surface_object, head, tail)
+    
+    def append_surface_object(self, surface_object):
+        append_linkedlist = center_wrapper(ListNode.append_linkedlist)
+        head = self.surface_object_list
+        tail = self.list_tail
+        self.list_tail = append_linkedlist(surface_object, head, tail)
         
     def generate_random_item(self):
         option = random.randrange(0, len(self.__items))
         return self.__items[option]
     
-    def obtained(self):
+    def obtained(self, **kwargs):
         global thread
-        item = self.generate_random_item()
-        if type(item) == tuple:
-            def run_functions(*functions):
+        
+        item_function = self.generate_random_item()
+        if type(item_function) == tuple:
+            def run_functions(functions, **kwargs):
                 for function in functions:
                     if not terminate_thread_event.is_set(): # if dont need to terminate
-                        function()
+                        if len(inspect.signature(function).parameters) > 0:
+                            function(**kwargs)
+                        else:
+                            function()
                     else:
                         terminate_thread_event.clear() # clear flag first
                         break
-            thread = threading.Thread(target=run_functions, args=item)
+            thread = threading.Thread(target=run_functions, args=(item_function,), kwargs=kwargs)
             thread.start()
         else:
-            item()
+            item_function()
         
 
 class Monster:
@@ -511,11 +531,11 @@ def init_game() -> None:
     Game()
 
 def init_UI():
-    global UIs, FUNCTIONS
+    global UIs
     with open("UI_options.json", "r") as UI_options_file:
         UIs = json.load(UI_options_file)
     # For options to call function, new key-value pairs have to be added here, in which FUNCTIONS[option_name_raw] = function
-    FUNCTIONS = {
+    UI.functions = {
         "New Game": Game.new_game,
         "Settings": UI.UI_open,
         "Exit": Game.exit_game,
@@ -548,7 +568,6 @@ def init_UI():
     }
     for instance_name_raw in UIs:
         UIs[instance_name_raw]["instance"] = UI(instance_name_raw)
-    del FUNCTIONS
         
 def init_config() -> None:
     config = toml.load("config.toml")
