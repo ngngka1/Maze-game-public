@@ -1,14 +1,14 @@
 [difficulty]
-    [difficulty.easy]
+    [difficulty.0]
         algorithm = 'dfs'
         map_enlargement_scale = 1
         item_appearance_rate = 0.5
-    [difficulty.normal]
-        algorithm = ''
+    [difficulty.1] 
+        algorithm = 'dfs'
         map_enlargement_scale = 1.5
         item_appearance_rate = 0.4
-    [difficulty.hard]
-        algorithm = ''
+    [difficulty.2]
+        algorithm = 'dfs'
         map_enlargement_scale = 2
         item_appearance_rate = 0.3
 

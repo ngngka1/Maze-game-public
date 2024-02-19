@@ -1,7 +1,8 @@
 import pygame as pg
 import pygame.camera as pgcam
+from config import *
 from makemaze import generate_map
-import toml
+from collections import OrderedDict
 import sys
 import json
 from Astar_search import Astar_search
@@ -39,10 +40,8 @@ class Game:
         self.screen = pg.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
         pg.display.set_caption("Maze minigame")
         self.level = None
-        self.current_activated_UI_stack: list[UI] = []
         
-        self.difficulty = "easy"
-        self.hint_paths = None
+        self.difficulty = 0
         self.bgm_track_index = 0
         self.chosen_theme_index = 0
         self.chosen_sprite_index = 0
@@ -50,13 +49,12 @@ class Game:
     def get_level_properties(self, level = 1) -> None:
         global time_elapsed
         self.level = level
-        level_prop = toml.load("level_properties.toml")
-        maze_generation_algorithm = level_prop["difficulty"][self.difficulty]["algorithm"]
-        map_enlargement_scale = level_prop["difficulty"][self.difficulty]["map_enlargement_scale"]
-        item_appearance_rate = level_prop["difficulty"][self.difficulty]["item_appearance_rate"]
+        maze_generation_algorithm = LEVEL_PROPERTIES["difficulty"][str(self.difficulty)]["algorithm"]
+        map_enlargement_scale = LEVEL_PROPERTIES["difficulty"][str(self.difficulty)]["map_enlargement_scale"]
+        item_appearance_rate = LEVEL_PROPERTIES["difficulty"][str(self.difficulty)]["item_appearance_rate"]
         
         # Map property
-        map_size = level_prop[str(self.level)]["map_size"] * map_enlargement_scale # how many grids (will be rounded) will be in the level
+        map_size = LEVEL_PROPERTIES[str(self.level)]["map_size"] * map_enlargement_scale # how many grids (will be rounded) will be in the level
         width_to_height_ratio = SCREEN_WIDTH / SCREEN_HEIGHT
         maze_column = int((map_size / (1 / width_to_height_ratio)) ** (1 / 2)) # w * (height-width ratio) * w = map.size -> w^2 * h/w = map.size -> w = (map.size / (h/w))^0.5
         maze_row = int((map_size / width_to_height_ratio) ** (1 / 2)) # h * (width-height ratio) * h = map.size
@@ -68,7 +66,6 @@ class Game:
         generate_map(maze_column, maze_row, maze_generation_algorithm, item_appearance_rate)
         with open("maze_map.json", "r") as maze_map_file:
             self.maze_map = json.load(maze_map_file)
-            # maze_map_hints = set(Astar_search(maze_map, [1, 1], None, 1))
                 
         self.get_new_game_class_objects(self.grid_width, self.grid_height)
 
@@ -96,14 +93,14 @@ class Game:
         if self.level > 1:
             player = Player(grid_width / 2, grid_height / 2, player.HP)
         else:
-            player = Player(grid_width / 2, grid_height / 2, PLAYER_HP)
+            player = Player(grid_width / 2, grid_height / 2, PLAYER_DEFAULT_HP)
         camera = Camera(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2)
         stats = Stats(self.level)
         
     @staticmethod
     def new_game():
         Game.instance.get_level_properties()
-        UI.switch_UI()
+        UIFactory.switch_UI()
 
     @staticmethod
     def exit_game(): # exit game
@@ -114,11 +111,7 @@ class Game:
     def change_difficulty():
         # Difficulty scale for "Easy", "Normal" and "Hard" are 1, 2, 3 respectively
         # indices for "Easy", "Normal" and "Hard" in the setting UI are 0, 1, 2;
-        # so adding one to it = difficulty scale
-        current_UI = Game.instance.current_activated_UI_stack[-1]
-        
-        # get the lower-case name of the chosen option (i.e. name of difficulty)
-        Game.instance.difficulty = UIs[current_UI.instance_name_raw]["options"][current_UI.chosen_index].lower()
+        Game.instance.difficulty = UIFactory.get_chosen_option()
         
     @staticmethod
     def activate_hint(item_surface_object): # I have to seaparate activate and deactivate due to possiblity
@@ -130,29 +123,32 @@ class Game:
         hint.activated = False
         
     @staticmethod
-    def load_bgm():
+    def load_bgm(i=0):
         pg.mixer.music.load(BGM[Game.instance.bgm_track_index])
         pg.mixer.music.play()
         pg.mixer.music.set_endevent(pg.USEREVENT)
             
     @staticmethod
     def change_bgm():
-        Game.instance.bgm_track_index = Game.instance.current_activated_UI_stack[-1].chosen_index
+        Game.instance.bgm_track_index = UIFactory.get_chosen_option()
         Game.load_bgm()
         
     @staticmethod
     def change_theme():
-        Game.instance.chosen_theme_index ^= 1
+        Game.instance.chosen_theme_index = UIFactory.get_chosen_option()
         
     @staticmethod
     def change_sprite():
-        Game.instance.chosen_sprite_index = (Game.instance.chosen_sprite_index + 1) % len(PATHS_TO_SPRITES)
-       
+        Player.sprite_surface = pg.image.load(PATHS_TO_SPRITES[UIFactory.activated_UI[-1].chosen_index])
+        if Game.instance.level is not None:
+            player.surface_scaled = pg.transform.smoothscale(Player.sprite_surface, (player.width, player.height))
+
     @staticmethod 
     def heal_player():
         player.HP += 1
         
 class Player:
+    sprite_surface = pg.image.load(PATHS_TO_SPRITES[0])
     def __init__(self, width, height, current_HP = None) -> None:
         self.HP = current_HP
         self.width = int(width)
@@ -164,8 +160,7 @@ class Player:
         self.move_left = False
         self.move_right = False
         self.movement_speed = self.width // 3
-        self.surface_unscaled = pg.image.load(PATHS_TO_SPRITES[Game.instance.chosen_sprite_index])
-        self.surface_scaled = pg.transform.smoothscale(self.surface_unscaled, (self.width, self.height))
+        self.surface_scaled = pg.transform.smoothscale(self.sprite_surface, (self.width, self.height))
         self.hitbox = pg.Rect(self.x, self.y, self.width, self.height)
         
     def check_movement(self) -> None:
@@ -189,7 +184,6 @@ class Player:
         if self.move_right:
             target_x += self.movement_speed
             
-
         if target_x != self.x:
             self.hitbox.x = target_x
             for rect_object in wall.rect_object_list:
@@ -199,7 +193,6 @@ class Player:
                     else:
                         self.hitbox.x += (rect_object.x + rect_object.width) - self.hitbox.x
                     
-            
         if target_y != self.y:
             self.hitbox.y = target_y
             for rect_object in wall.rect_object_list:
@@ -217,8 +210,6 @@ class Player:
         self.move_up = False
         self.obtained_item_check()
         self.pass_check()
-        
-        
         
     def pass_check(self):
         if self.hitbox.colliderect(goal.rect_object_list[0].rect):
@@ -251,73 +242,129 @@ class Camera:
         self.surface.blit(Game.instance.screen, (0, 0), (self.x, self.y, self.width, self.height))
         Game.instance.screen.blit(pg.transform.scale(self.surface, (SCREEN_WIDTH, SCREEN_HEIGHT)), (0, 0))
       
-class UI:
-    functions = None
-    def __init__(self, instance_name_raw: str) -> None:
-        self.instance_name_raw = instance_name_raw
-        self.activated = False
-        self.chosen_index = 0
-        self.text_box_color_unchosen = (100, 100, 100)
-        self.text_box_color_chosen = (0, 0, 0)
-        self.text_color = (255, 255, 255)
-        self.text_box = {}
-        self.options_functions = []
-        self.total_option = len(UIs[self.instance_name_raw]["options"])
-        self.get_options()
+class UIFactory:
+    activated_UI: list["UI"] = []
+    UI_list: list["UI"] = {}
     
-    def get_options(self):
-        for i, option_name in enumerate(UIs[self.instance_name_raw]["options"]):
-            self.options_functions.append(UI.functions[option_name])
-            text_surface = FONT.render(option_name, True, self.text_color)
-            text_rect = text_surface.get_rect()
-            text_rects_distance = text_rect.height + 20 # There is a distance of 20 pixel between each rects
-            text_rect.center = (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - text_rects_distance * ((self.total_option // 2) - i))
-            self.text_box[option_name] = {
-                        "text_surface": text_surface,
-                        "rect": text_rect
-                    }
-        
     @staticmethod
     def switch_UI(UI_object = None): 
         if not UI_object: # UIreturn
-            Game.instance.current_activated_UI_stack.pop().activated ^= 1
+            UIFactory.activated_UI.pop().activated ^= 1
         else: # UIopen
-            Game.instance.current_activated_UI_stack.append(UI_object)
+            UIFactory.activated_UI.append(UI_object)
             UI_object.activated ^= 1
-            
+    
     @staticmethod
     def UI_return(): # return to the previous UI
-        UI.switch_UI()
+        UIFactory.switch_UI()
         
     @staticmethod
     def UI_open(new_UI = None): # if no argument passed: opens the UI that is chosen; If with argument passed: opens the specified UI by getting the UI object with its name
         if not new_UI:
-            current_UI = Game.instance.current_activated_UI_stack[-1]
-            new_UI = UI.get_instance(UIs[current_UI.instance_name_raw]["options"][current_UI.chosen_index]) # in toml file, the 1st letter of the UI's option is capitalized, so i just put lower() here to avoid key errors
-        UI.switch_UI(new_UI)
+            new_UI = UIFactory.get_chosen_option() # in toml file, the 1st letter of the UI's option is capitalized, so i just put lower() here to avoid key errors
+        UIFactory.switch_UI(new_UI)
         
     @staticmethod
     def get_instance(UI_instance_name_raw): # just a function to improve the readability of the program
-        return UIs[UI_instance_name_raw.lower().replace(' ', '_')]["instance"] # lower() and replace() functions to change the raw instance name according to snake_case naming rules
+        parsed_name = UI_instance_name_raw.lower().replace(' ', '_')
+        if parsed_name in UIFactory.UI_list:
+            return UIFactory.UI_list[parsed_name] # lower() and replace() functions to change the raw instance name according to snake_case naming rules
+        else:
+            return None
+    @staticmethod
+    def get_chosen_option():
+        """ This return the chosen option either in UI/int, for example,
+        if option "setting" is chosen, it returns an UI object; If option
+        "Easy" is chosen in the difficulty setting, where no UI object is 
+        associated with the choice, the chosen index will be returned.
 
+        Returns:
+            _type_: UI | int
+        """
+        current_UI = UIFactory.activated_UI[-1]
+        instance = UIFactory.get_instance(current_UI.options[current_UI.chosen_index]["name"])
+        if instance:
+            return instance
+        else:
+            return current_UI.chosen_index
+        
     @staticmethod
     def UI_return_ultimate():
-        current_UI = Game.instance.current_activated_UI_stack[-1]
-        for i in range(len(Game.instance.current_activated_UI_stack)):
-            Game.instance.current_activated_UI_stack[i].activated ^= 1
+        current_UI = UIFactory.activated_UI[-1]
+        for i in range(len(UIFactory.activated_UI)):
+            UIFactory.activated_UI[i].activated ^= 1
             
-        Game.instance.current_activated_UI_stack = []
+        UIFactory.activated_UI = []
         
         if current_UI.instance_name_raw == "return_main_menu": ## Note: if this function is called in the return_main_menu UI, 
             # it means the player confirmed to return to main menu; While if this function is not called from return_main_menu_UI,
             # it can just be other options using ultimate UI return function
             Game.instance.screen.fill(THEMES[Game.instance.chosen_theme_index])
-            Game.instance.current_activated_UI_stack.append(UI.get_instance("main_menu"))
+            UIFactory.activated_UI.append(UIFactory.get_instance("main_menu"))
+      
+class UI:
+    __functions = {
+        "New Game": Game.new_game,
+        "Settings": UIFactory.UI_open,
+        "Exit": Game.exit_game,
+
+        "Continue": UIFactory.UI_return,
+        "Return Main Menu": UIFactory.UI_open,
+
+        "Difficulty": UIFactory.UI_open,
+        "BGM": UIFactory.UI_open,
+        "Character": UIFactory.UI_open,
+        "Theme": UIFactory.UI_open,
+        # "Hint": (Game.switch_hint, UIFactory.UI_return_ultimate),
+
+        "Return to main menu and lose current progress": UIFactory.UI_return_ultimate,
+        "No": UIFactory.UI_return,
+
+        "Easy": (Game.change_difficulty, UIFactory.UI_return),
+        "Normal": (Game.change_difficulty, UIFactory.UI_return),
+        "Hard": (Game.change_difficulty, UIFactory.UI_return),
+
+        "Track 1": (Game.change_bgm, UIFactory.UI_return),
+        "Track 2": (Game.change_bgm, UIFactory.UI_return),
+        "Track 3": (Game.change_bgm, UIFactory.UI_return),
+
+        "Sprite 1": (Game.change_sprite, UIFactory.UI_return),
+        "Sprite 2": (Game.change_sprite, UIFactory.UI_return),
+
+        "Dark": (Game.change_theme, UIFactory.UI_return),
+        "Light": (Game.change_theme, UIFactory.UI_return)
+    }
+    def __init__(self, instance_name_raw: str, options) -> None:
+        self.instance_name_raw = instance_name_raw
+        self.activated = False
+        self.text_box_color_unchosen = (100, 100, 100)
+        self.text_box_color_chosen = (0, 0, 0)
+        self.text_color = (255, 255, 255)
+        self.text_box = []
+        self.options = []
+        self.total_option = len(options)
+        self.get_options(options)
+        self.chosen_index = 0
+    
+    def get_options(self, options):
+        for i, option_name in enumerate(options):
+            self.options.append({
+                "name": option_name,
+                "function": UI.__functions[option_name]
+            })
+            text_surface = FONT.render(option_name, True, self.text_color)
+            text_rect = text_surface.get_rect()
+            text_rects_distance = text_rect.height + 20 # There is a distance of 20 pixel between each rects
+            text_rect.center = (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - text_rects_distance * ((self.total_option // 2) - i))
+            self.text_box.append({
+                        "text_surface": text_surface,
+                        "rect": text_rect
+                    })
         
     def check_action(self, event):  # check if user changed action
         if event.type == pg.KEYDOWN:
-            if event.key == pg.K_ESCAPE and Game.instance.current_activated_UI_stack[-1].instance_name_raw != "main_menu":
-                UI.UI_return()
+            if event.key == pg.K_ESCAPE and UIFactory.activated_UI[-1].instance_name_raw != "main_menu":
+                UIFactory.UI_return()
             elif event.key == pg.K_RETURN:
                 self.execute_action(self.chosen_index)
             elif event.key == pg.K_UP or event.key == pg.K_w:
@@ -327,31 +374,44 @@ class UI:
             self.chosen_index = max(0, self.chosen_index % self.total_option)
                 
     def execute_action(self, i): # execute chosen action
-        if type(self.options_functions[i]) == tuple:
-            for function in self.options_functions[i]:
+        if type(self.options[i]["function"]) == tuple:
+            for function in self.options[i]["function"]:
                 function()
         else:
-            self.options_functions[i]()
+            self.options[i]["function"]()
              
     def update_UI(self) -> None:
-        for i, option_name in enumerate(self.text_box):
+        for i in range(len(self.options)):
             if i == self.chosen_index:
-                pg.draw.rect(Game.instance.screen, self.text_box_color_chosen, self.text_box[option_name]["rect"])
+                pg.draw.rect(Game.instance.screen, self.text_box_color_chosen, self.text_box[i]["rect"])
             else:
-                pg.draw.rect(Game.instance.screen, self.text_box_color_unchosen, self.text_box[option_name]["rect"], 0, 3)
-            Game.instance.screen.blit(self.text_box[option_name]["text_surface"], self.text_box[option_name]["rect"])
+                pg.draw.rect(Game.instance.screen, self.text_box_color_unchosen, self.text_box[i]["rect"], 0, 3)
+            Game.instance.screen.blit(self.text_box[i]["text_surface"], self.text_box[i]["rect"])
       
 class Stats:
     def __init__(self, current_level, time_elapsed = 0):
         self.display = True
+        cursor_x = (camera.x + SCREEN_WIDTH // 2) // 2
+        cursor_y = (camera.y + SCREEN_HEIGHT // 2) // 2
         self.time_elapsed = time_elapsed
         self.time_display_surface = FONT.render(f"Time used: {time_elapsed:.3f}", True, (0, 0, 0))
-        self.time_display_rect = self.time_display_surface.get_rect(center = ((camera.x + SCREEN_WIDTH // 2) // 2, (camera.y + SCREEN_HEIGHT // 2) // 2))
+        self.time_display_rect = self.time_display_surface.get_rect(center = (cursor_x, cursor_y))
+        
+        cursor_y += 80
         self.level_display_surface = FONT.render(f"Current level: {current_level}", True, (0, 0, 0))
-        self.level_display_rect = self.level_display_surface.get_rect(center = ((camera.x + SCREEN_WIDTH // 2) // 2, (camera.y + SCREEN_HEIGHT // 2) // 2 + 80))
-        self.level_display_rect.x = self.time_display_rect.x
+        self.level_display_rect = self.level_display_surface.get_rect(center = ((cursor_x, cursor_y)))
+        
+        cursor_y += 80
+        current_difficulty = UIFactory.get_instance("difficulty").options[Game.instance.difficulty]["name"]
+        self.difficulty_display_surface = FONT.render(f"Current difficulty: {current_difficulty}", True, (0, 0, 0))
+        self.difficulty_display_rect = self.difficulty_display_surface.get_rect(center = (cursor_x, cursor_y))
+        
+        cursor_y += 80
         self.HP_display_surface = pg.transform.smoothscale(pg.image.load("assets\Heart.png"), (30, 30))
-        self.HP_display_y = self.level_display_rect.y + 80
+        self.HP_display_y = cursor_y
+        
+        self.level_display_rect.x = self.time_display_rect.x = self.difficulty_display_rect.x
+        ## of course in the future i will improve this terrible code
         
         
     def update_stats_overlay(self):
@@ -362,6 +422,9 @@ class Stats:
         pg.draw.rect(Game.instance.screen, (255, 255, 0), self.time_display_rect)
         self.time_display_surface = FONT.render(f"Time used: {self.time_elapsed}", True, (0, 0, 0))
         Game.instance.screen.blit(self.time_display_surface, self.time_display_rect)
+        
+        pg.draw.rect(Game.instance.screen, (255, 255, 0), self.difficulty_display_rect)
+        Game.instance.screen.blit(self.difficulty_display_surface, self.difficulty_display_rect)
         
         cursor = [self.level_display_rect.x, self.HP_display_y]
         for i in range(player.HP):
@@ -445,8 +508,7 @@ class Hint(RectObject):
         paths = Astar_search(Game.instance.maze_map, (column_num, row_num), None, 1)
         for path in paths:
             hint.append_rect_object(RectObject(path[1] * Game.instance.grid_width, path[0] * Game.instance.grid_height, hint.default_width, hint.default_height, (255, 0, 25), 0, 5))
-
-        
+      
 class Items(SurfaceObject):
     __items = (
         # buff
@@ -496,7 +558,6 @@ class Items(SurfaceObject):
         else:
             item_function()
         
-
 class Monster:
     def __init__(self, width, height, HP):
         self.width = width
@@ -504,11 +565,11 @@ class Monster:
         self.HP = HP
         
 def draw_screen() -> None:
-    if Game.instance.current_activated_UI_stack:
-        if Game.instance.current_activated_UI_stack[0].instance_name_raw == "main_menu":
+    if UIFactory.activated_UI:
+        if UIFactory.activated_UI[0].instance_name_raw == "main_menu":
             Game.instance.screen.fill(THEMES[Game.instance.chosen_theme_index])
         pg.draw.rect(Game.instance.screen, (0, 0, 255), (SCREEN_WIDTH // 4, SCREEN_HEIGHT // 4, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2), 0, 40)
-        Game.instance.current_activated_UI_stack[-1].update_UI()
+        UIFactory.activated_UI[-1].update_UI()
     else:
         Game.instance.screen.fill(THEMES[Game.instance.chosen_theme_index])
 
@@ -526,72 +587,12 @@ def draw_game_grid() -> None:
             game_object.print()
     
     Game.instance.screen.blit(player.surface_scaled, (player.x, player.y))
-                   
-def init_game() -> None:
-    Game()
 
 def init_UI():
-    global UIs
     with open("UI_options.json", "r") as UI_options_file:
         UIs = json.load(UI_options_file)
-    # For options to call function, new key-value pairs have to be added here, in which FUNCTIONS[option_name_raw] = function
-    UI.functions = {
-        "New Game": Game.new_game,
-        "Settings": UI.UI_open,
-        "Exit": Game.exit_game,
-
-        "Continue": UI.UI_return,
-        "Return Main Menu": UI.UI_open,
-
-        "Difficulty": UI.UI_open,
-        "BGM": UI.UI_open,
-        "Character": UI.UI_open,
-        "Theme": UI.UI_open,
-        # "Hint": (Game.switch_hint, UI.UI_return_ultimate),
-
-        "Return to main menu and lose current progress": UI.UI_return_ultimate,
-        "No": UI.UI_return,
-
-        "Easy": (Game.change_difficulty, UI.UI_return),
-        "Normal": (Game.change_difficulty, UI.UI_return),
-        "Hard": (Game.change_difficulty, UI.UI_return),
-
-        "Track 1": (Game.change_bgm, UI.UI_return),
-        "Track 2": (Game.change_bgm, UI.UI_return),
-        "Track 3": (Game.change_bgm, UI.UI_return),
-
-        "Sprite 1": (Game.change_sprite, UI.UI_return),
-        "Sprite 2": (Game.change_sprite, UI.UI_return),
-
-        "Dark": (Game.change_theme, UI.UI_return),
-        "Light": (Game.change_theme, UI.UI_return)
-    }
     for instance_name_raw in UIs:
-        UIs[instance_name_raw]["instance"] = UI(instance_name_raw)
-        
-def init_config() -> None:
-    config = toml.load("config.toml")
-    # Main game
-    global FPS, SCREEN_WIDTH, SCREEN_HEIGHT, THEMES
-    FPS = config["fps"]
-    SCREEN_WIDTH = config["screen_width"]
-    SCREEN_HEIGHT = config["screen_height"]
-    THEMES = config["themes"]
-    # Player
-    global PATHS_TO_SPRITES, PLAYER_HP
-    PATHS_TO_SPRITES = config["player"]["paths"]
-    PLAYER_HP = config["player"]["HP"]
-    # Items
-    global PATH_TO_ITEM
-    PATH_TO_ITEM = config["items"]["path"]
-    # Font
-    global FONT_FILE_PATH, FONT
-    pg.font.init()
-    FONT_FILE_PATH = config["font"]["path"]
-    FONT = pg.font.Font(FONT_FILE_PATH, 50) 
-    # BGMs
-    global BGM
-    BGM = config["bgm"]["paths"]
+        UIFactory.UI_list[instance_name_raw] = UI(instance_name_raw, UIs[instance_name_raw]["options"])
     
 def main():
     global time_elapsed, thread, terminate_thread_event
@@ -605,7 +606,7 @@ def main():
     while running:
         pg.key.stop_text_input() # Stop text input to allow WASD key to control the sprite
         clock.tick(FPS)
-        if Game.instance.current_activated_UI_stack:
+        if UIFactory.activated_UI:
             if pause_start_time == 0:
                 pause_start_time = pg.time.get_ticks()
         for event in pg.event.get():
@@ -615,14 +616,13 @@ def main():
             if event.type == pg.USEREVENT:
                 Game.load_bgm()
             if event.type == pg.KEYDOWN:
-                if Game.instance.current_activated_UI_stack: # if UI is turned on
-                    Game.instance.current_activated_UI_stack[-1].check_action(event)
+                if UIFactory.activated_UI: # if UI is turned on
+                    UIFactory.activated_UI[-1].check_action(event)
                 else:
                     if event.key == pg.K_ESCAPE:
-                        UI.UI_open(UI.get_instance("menu")) # turn on menu UI when it's currently in the main game
+                        UIFactory.UI_open(UIFactory.get_instance("menu")) # turn on menu UI when it's currently in the main game
             
-            
-        if not Game.instance.current_activated_UI_stack:
+        if not UIFactory.activated_UI:
             
             if pause_start_time != 0:
                 total_paused_time += pg.time.get_ticks() - pause_start_time
@@ -636,9 +636,8 @@ def main():
 if __name__ == "__main__":
     pg.init()
     pgcam.init()
-    init_config()
-    init_game()
+    Game()
     init_UI()
-    Game.instance.current_activated_UI_stack = [UI.get_instance("main_menu")]
+    UIFactory.activated_UI = [UIFactory.get_instance("main_menu")]
     Game.load_bgm()
     main()
