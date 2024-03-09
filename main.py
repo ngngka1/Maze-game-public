@@ -636,6 +636,7 @@ def main():
 if __name__ == "__main__":
     pg.init()
     pgcam.init()
+    pg.mixer.init()
     Game()
     init_UI()
     UIFactory.activated_UI = [UIFactory.get_instance("main_menu")]
