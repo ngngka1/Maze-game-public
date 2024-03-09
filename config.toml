@@ -5,13 +5,13 @@ themes = [[255,255,255], [100, 100, 100]] # light, dark
 
 [player]
 HP = 3
-paths = ['assets\MrFresh.png', 'assets\LookUpCat.png']
+paths = ['assets/MrFresh.png', 'assets/LookUpCat.png']
 
 [items]
-path = 'assets\QuestionMarkBox.png'
+path = 'assets/QuestionMarkBox.png'
 
 [font]
-path = 'assets\SunnySpellsBasicRegular-Yz1Wv.ttf'
+path = 'assets/SunnySpellsBasicRegular-Yz1Wv.ttf'
 
 [bgm]
-paths = ['assets\Undertale OST - 015 sans..mp3', 'assets\Undertale OST - 004 Fallen Down.mp3', 'assets\Undertale OST - 059 Spider Dance.mp3']
+paths = ['assets/Undertale OST - 015 sans..mp3', 'assets/Undertale OST - 004 Fallen Down.mp3', 'assets/Undertale OST - 059 Spider Dance.mp3']
